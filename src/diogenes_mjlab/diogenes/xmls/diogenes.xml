@@ -10,8 +10,19 @@
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
       </default>
+      <!-- Collision geoms are DISABLED by default (contype/conaffinity = 0).
+           This is a fixed hop test stand: the only contact we want is the foot
+           (calf) against the floor. Internal mechanism parts (carriage blocks,
+           actuators, bearings, spacers) should never generate contacts. Leaving
+           them all collidable produced dozens of simultaneous constraint rows
+           per env and triggered "nefc overflow" clamping. We re-enable collision
+           only on the foot via the "foot" class below. -->
       <default class="collision">
-        <geom group="3"/>
+        <geom group="3" contype="0" conaffinity="0"/>
+      </default>
+      <!-- Foot collision: re-enable contact against the world/floor. -->
+      <default class="foot">
+        <geom group="3" contype="1" conaffinity="1"/>
       </default>
     </default>
   </default>
@@ -87,9 +98,9 @@
               <!-- Part 606_2rs_2 -->
               <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs__2" material="606_2rs__2_material"/>
               <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs__2" material="606_2rs__2_material"/>
-              <!-- Part calf -->
+              <!-- Part calf (this is the foot end that should contact the floor) -->
               <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="calf" material="calf_material"/>
-              <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="calf" material="calf_material"/>
+              <geom type="mesh" class="foot" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="calf" material="calf_material"/>
             </body>
           </body>
         </body>
