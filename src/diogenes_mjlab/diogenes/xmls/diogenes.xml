@@ -1,0 +1,131 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/059a4c781b4bb4d9222a411d/w/7cc560eda411ee8274e44061/e/a6a801257006712d1f1be4b4 -->
+<mujoco model="diogenes">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <default>
+    <default class="diogenes">
+      <joint frictionloss="0.1" armature="0.005"/>
+      <position kp="50" dampratio="1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+      </default>
+    </default>
+  </default>
+  <worldbody>
+    <!-- Link base_link -->
+    <body name="base_link" pos="0 0 0" quat="1 0 0 0" childclass="diogenes">
+      <inertial pos="0 0 0" mass="1e-09" fullinertia="1e-09 1e-09 1e-09 0 0 0"/>
+      <!-- Part base_link -->
+      <geom type="mesh" class="visual" pos="0 0.05 0" quat="1 0 0 0" mesh="base_link" material="base_link_material"/>
+      <geom type="mesh" class="collision" pos="0 0.05 0" quat="1 0 0 0" mesh="base_link" material="base_link_material"/>
+      <!-- Link leg_mount_assy -->
+      <body name="leg_mount_assy" pos="-0 0 0.122" quat="0 1 0 0">
+        <!-- Joint from base_link to leg_mount_assy -->
+        <joint axis="0 0 1" name="slider" type="slide" range="-0.628 0.12200000000000001"/>
+        <inertial pos="-0 -0.000428688 -0.075" mass="1.35184" fullinertia="0.00183305 0.00379291 0.002564 -0 2e-12 -0"/>
+        <!-- Part leg_mount -->
+        <geom type="mesh" class="visual" pos="0 0.0275 -0.075" quat="0 1 0 0" mesh="leg_mount" material="leg_mount_material"/>
+        <geom type="mesh" class="collision" pos="0 0.0275 -0.075" quat="0 1 0 0" mesh="leg_mount" material="leg_mount_material"/>
+        <!-- Part mgn12h_block -->
+        <geom type="mesh" class="visual" pos="-0.075 -0.0005 -0.0227" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <geom type="mesh" class="collision" pos="-0.075 -0.0005 -0.0227" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <!-- Part mgn12h_block_2 -->
+        <geom type="mesh" class="visual" pos="0.075 -0.0005 -0.1273" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <geom type="mesh" class="collision" pos="0.075 -0.0005 -0.1273" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <!-- Part mgn12h_block_3 -->
+        <geom type="mesh" class="visual" pos="-0.075 -0.0005 -0.1273" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <geom type="mesh" class="collision" pos="-0.075 -0.0005 -0.1273" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <!-- Part mgn12h_block_4 -->
+        <geom type="mesh" class="visual" pos="0.075 -0.0005 -0.0227" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <geom type="mesh" class="collision" pos="0.075 -0.0005 -0.0227" quat="0 0 1 0" mesh="mgn12h_block" material="mgn12h_block_material"/>
+        <!-- Part rs03 -->
+        <geom type="mesh" class="visual" pos="-0 0.023 -0.075" quat="0 1 0 0" mesh="rs03" material="rs03_material"/>
+        <geom type="mesh" class="collision" pos="-0 0.023 -0.075" quat="0 1 0 0" mesh="rs03" material="rs03_material"/>
+        <!-- Link hip_assy -->
+        <body name="hip_assy" pos="-0 0.023 -0.075" quat="0 -0 0.707107 -0.707107">
+          <!-- Joint from leg_mount_assy to hip_assy -->
+          <joint axis="0 0 1" name="hip" type="hinge" range="-0.7853981633974483 0.7853981633974483"/>
+          <inertial pos="0.0476004 -8.902e-09 -0.0708184" mass="1.3764" fullinertia="0.00260622 0.00219182 0.00147796 -6.38e-10 0.000326127 7.35e-10"/>
+          <!-- Part rs03_2 -->
+          <geom type="mesh" class="visual" pos="0.025 0 -0.0885" quat="0.5 -0.5 -0.5 -0.5" mesh="rs03" material="rs03_material"/>
+          <geom type="mesh" class="collision" pos="0.025 0 -0.0885" quat="0.5 -0.5 -0.5 -0.5" mesh="rs03" material="rs03_material"/>
+          <!-- Part hip -->
+          <geom type="mesh" class="visual" pos="-0 0 -0.0325" quat="0.707107 -0.707107 -0 0" mesh="hip" material="hip_material"/>
+          <geom type="mesh" class="collision" pos="-0 0 -0.0325" quat="0.707107 -0.707107 -0 0" mesh="hip" material="hip_material"/>
+          <!-- Link thigh_assy -->
+          <body name="thigh_assy" pos="0.025 0 -0.0885" quat="0.5 0.5 0.5 0.5">
+            <!-- Joint from hip_assy to thigh_assy -->
+            <joint axis="0 0 1" name="thigh" type="hinge" range="-1.5707963267948966 0.26179938779914913"/>
+            <inertial pos="0.00310674 -0.0292718 -0.0585998" mass="1.38666" fullinertia="0.00703968 0.0017677 0.00681752 0.000414935 -0.000132505 0.0012537"/>
+            <!-- Part left_thigh___l -->
+            <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___l" material="left_thigh___l_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___l" material="left_thigh___l_material"/>
+            <!-- Part knee_spacer -->
+            <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer" material="knee_spacer_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer" material="knee_spacer_material"/>
+            <!-- Part left_thigh___r -->
+            <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___r" material="left_thigh___r_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___r" material="left_thigh___r_material"/>
+            <!-- Part rs03_3 -->
+            <geom type="mesh" class="visual" pos="-0 0 -0.045" quat="0.690346 -0.690346 0.153046 -0.153046" mesh="rs03" material="rs03_material"/>
+            <geom type="mesh" class="collision" pos="-0 0 -0.045" quat="0.690346 -0.690346 0.153046 -0.153046" mesh="rs03" material="rs03_material"/>
+            <!-- Part knee_spacer_2 -->
+            <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+            <!-- Link calf_assy -->
+            <body name="calf_assy" pos="-0 -0.2 -0.0135" quat="1 0 0 -0">
+              <!-- Joint from thigh_assy to calf_assy -->
+              <joint axis="0 0 1" name="calf" type="hinge" range="0.0 1.5707963267948966"/>
+              <inertial pos="-0.0734277 0.0764228 -0.0139962" mass="0.329345" fullinertia="0.00129077 0.00121983 0.00245382 0.00119389 -6.5392e-08 6.7762e-08"/>
+              <!-- Part 606_2rs -->
+              <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs" material="606_2rs_material"/>
+              <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs" material="606_2rs_material"/>
+              <!-- Part 606_2rs_2 -->
+              <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs__2" material="606_2rs__2_material"/>
+              <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="606_2rs__2" material="606_2rs__2_material"/>
+              <!-- Part calf -->
+              <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="calf" material="calf_material"/>
+              <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.653281 0.270598 0.653281 -0.270598" mesh="calf" material="calf_material"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <asset>
+    <mesh file="left_thigh___r.stl"/>
+    <mesh file="left_thigh___l.stl"/>
+    <mesh file="leg_mount.stl"/>
+    <mesh file="hip.stl"/>
+    <mesh file="606_2rs__2.stl"/>
+    <mesh file="base_link.stl"/>
+    <mesh file="calf.stl"/>
+    <mesh file="606_2rs.stl"/>
+    <mesh file="mgn12h_block.stl"/>
+    <mesh file="knee_spacer__2.stl"/>
+    <mesh file="knee_spacer.stl"/>
+    <mesh file="rs03.stl"/>
+    <material name="base_link_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="leg_mount_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="mgn12h_block_material" rgba="0.713725 0.760784 0.8 1"/>
+    <material name="rs03_material" rgba="0.498039 0.498039 0.498039 1"/>
+    <material name="hip_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="left_thigh___l_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="knee_spacer_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="left_thigh___r_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="knee_spacer__2_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="606_2rs_material" rgba="0.713725 0.760784 0.8 1"/>
+    <material name="606_2rs__2_material" rgba="0.713725 0.760784 0.8 1"/>
+    <material name="calf_material" rgba="0.972549 0.529412 0.00392157 1"/>
+  </asset>
+  <actuator>
+    <position class="diogenes" name="hip" joint="hip" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="diogenes" name="thigh" joint="thigh" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="diogenes" name="calf" joint="calf" kp="60.0" kv="4.0" inheritrange="1"/>
+  </actuator>
+  <equality/>
+</mujoco>

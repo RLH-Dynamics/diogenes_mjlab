@@ -1,0 +1,22 @@
+[project]
+name = "diogenes-mjlab"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "RLH-Dynamics", email = "11579309+CLansd@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "mjlab>=1.4.0",
+]
+
+[project.scripts]
+diogenes-mjlab = "diogenes_mjlab:main"
+
+[project.entry-points."mjlab.tasks"]
+diogenes = "diogenes_mjlab"
+
+[build-system]
+requires = ["uv_build>=0.11.17,<0.12.0"]
+build-backend = "uv_build"
