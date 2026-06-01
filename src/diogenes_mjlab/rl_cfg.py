@@ -40,5 +40,5 @@ def diogenes_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     experiment_name="diogenes",
     num_steps_per_env=24,
     save_interval=50,
-    max_iterations=300,
+    max_iterations=900,
   )

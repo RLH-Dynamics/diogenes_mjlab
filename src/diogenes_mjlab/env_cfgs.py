@@ -6,9 +6,41 @@ move vertically along a rail. This is a hop test stand, not a free-floating
 locomotion robot, so the built-in ``velocity`` task does not apply and the env
 is built from scratch.
 
-The task here is *periodic hopping*: drive the three leg joints so that the
-carriage (tracked by the slider) follows a phase-conditioned ballistic arc that
-peaks ``HOP_HEIGHT`` metres above its starting position once per ``HOP_PERIOD``.
+The task here is *periodic hopping*: drive the three leg joints so the carriage
+(tracked by the slider) hops once per ``HOP_PERIOD``, reaching ``HOP_HEIGHT``
+metres above start at the apex.
+
+Reward design (updated)
+-----------------------
+The original dense reward tracked the slider's deviation from a hand-authored
+parabolic trajectory. That has been replaced with a single outcome-based apex
+reward, plus naturalness/smoothness regularizers:
+
+  * Hop amplitude
+      - ``peak_hop_height``          : per cycle, reward how close the achieved
+                                       apex gets to the desired height (Gaussian).
+                                       No flight/stance schedule is enforced: the
+                                       policy discovers the liftoff timing that
+                                       the leg geometry and target apex imply.
+  * Naturalness / smoothness
+      - ``lateral_contact_force``    : minimize tangential ground reaction
+                                       (kills foot slip / scuffing).
+      - ``vertical_contact_force``   : gently minimize normal ground reaction
+                                       (encourages soft, compliant footfalls).
+      - ``foot_slip``                : penalize foot xy velocity while in contact
+                                       (reuses the velocity task's term).
+      - ``soft_landing``             : penalize landing impact force
+                                       (reuses the velocity task's term).
+      - ``electrical_power``         : penalize positive mechanical power
+                                       (reuses mjlab's term; energy efficiency).
+      - ``action_rate`` / ``joint_limits`` : unchanged regularizers.
+
+Foot/ground contact is measured by a ``ContactSensor`` whose primary is the
+``calf_assy`` body (the foot is the only collidable geom on it) and whose
+secondary is the world ``floor`` geom. ``reduce="netforce"`` returns the summed
+contact wrench in the GLOBAL frame, so its z-component is the vertical force and
+its xy-components are the lateral forces. ``track_air_time=True`` provides the
+air/contact-time accumulators the gait terms and ``soft_landing`` rely on.
 
 Slider sign convention (verified against MuJoCo): the leg_mount body is rotated
 180 deg about X, so the slider axis points along world -Z and the carriage
@@ -30,8 +62,10 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene.scene import SceneCfg
+from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import SimulationCfg
 from mjlab.sim.sim import MujocoCfg
+from mjlab.tasks.velocity import mdp as velocity_mdp
 
 from . import mdp as diogenes_mdp
 from .diogenes.diogenes_constants import get_diogenes_cfg
@@ -41,8 +75,15 @@ DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
 
 # Hop task parameters.
 HOP_HEIGHT = 0.35  # Peak target height above start, in metres.
-HOP_PERIOD = 0.6  # One hop cycle, in seconds.
-HOP_FLIGHT_FRAC = 0.7  # Fraction of the period spent airborne.
+HOP_PERIOD = 0.9  # One hop cycle, in seconds. A clean 0.35 m ballistic hop has
+# ~0.53 s of flight; at 0.9 s the flight sits centered in the cycle (takeoff at
+# phase ~0.20, apex at 0.50, landing at ~0.80) leaving ~41% stance. At this
+# period the height target and the mid-cycle apex-timing target are mutually
+# consistent: a centered ballistic arc peaking at mid-cycle peaks at exactly
+# 0.35 m, so the two reward factors reinforce rather than fight.
+
+# Name of the foot/ground contact sensor (referenced by several reward terms).
+FOOT_CONTACT_SENSOR = "foot_ground_contact"
 
 # Entity-config factories. Each manager term must get its OWN SceneEntityCfg
 # instance, passed via ``params`` so the manager resolves it. Sharing a single
@@ -63,6 +104,15 @@ def actuated_joints_cfg() -> SceneEntityCfg:
 def actuators_cfg() -> SceneEntityCfg:
   """Selects the three position actuators (for the torque penalty)."""
   return SceneEntityCfg("robot", actuator_names=DIOGENES_ACTUATOR_NAMES)
+
+
+def power_joints_cfg() -> SceneEntityCfg:
+  """Selects the three actuated joints by NAME for the power penalty.
+
+  ``electrical_power_cost`` resolves its ``asset_cfg`` via ``find_joints`` on the
+  joint names, so this must carry ``joint_names`` (not ``actuator_names``).
+  """
+  return SceneEntityCfg("robot", joint_names=DIOGENES_ACTUATOR_NAMES)
 
 
 def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -91,10 +141,32 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   # ---------------------------------------------------------------------------
   # Scene: the robot plus a ground plane (included by scene.xml).
   # ---------------------------------------------------------------------------
+  # Foot/ground contact sensor:
+  #   * primary  = the calf_assy body (the foot is its only collidable geom).
+  #   * secondary = the "floor" geom. The floor lives inside the robot entity's
+  #     spec (scene.xml is loaded as part of the entity), so it gets attached
+  #     with the "robot/" prefix; setting entity="robot" lets the sensor resolve
+  #     and prefix the name automatically (the bare literal "floor" would not be
+  #     found in the compiled model).
+  #   * reduce="netforce" -> single summed wrench per env in the GLOBAL frame,
+  #     so force[..., 2] is vertical and force[..., :2] is lateral.
+  #   * track_air_time=True -> enables air/contact-time accumulators used by the
+  #     gait terms and soft_landing's first-contact detection.
+  foot_contact_cfg = ContactSensorCfg(
+    name=FOOT_CONTACT_SENSOR,
+    primary=ContactMatch(mode="body", pattern="calf_assy", entity="robot"),
+    secondary=ContactMatch(mode="geom", pattern="floor", entity="robot"),
+    fields=("found", "force", "pos"),
+    reduce="netforce",
+    num_slots=1,
+    track_air_time=True,
+  )
+
   scene_cfg = SceneCfg(
     num_envs=4096,
     env_spacing=2.0,
     entities={"robot": get_diogenes_cfg()},
+    sensors=(foot_contact_cfg,),
   )
 
   # ---------------------------------------------------------------------------
@@ -158,34 +230,89 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
   }
 
   # ---------------------------------------------------------------------------
-  # Rewards: hop-height tracking plus regularization.
+  # Rewards.
   # ---------------------------------------------------------------------------
-  # The task reward (positive) tracks the phase-conditioned parabolic arc.
-  # The three regularization terms have negative weights to discourage jerky,
-  # high-torque, limit-slamming behaviour. Reward values are scaled by the
-  # control dt inside the manager, so weights are per-second rates.
+  # Reward values are scaled by the control dt inside the manager, so weights
+  # are per-second rates. Positive weights are rewards; negative are penalties.
   rewards = {
-    "hop_height": RewardTermCfg(
-      func=diogenes_mdp.hop_height_tracking,
-      weight=1.0,
+    # --- Hop amplitude + timing: hit the desired apex AT mid-cycle. ---
+    # The main task driver. Sparse (fires only on the phase-wrap step) and
+    # positive (product of two Gaussians, in [0, 1]). It rewards BOTH the peak
+    # carriage height matching HOP_HEIGHT and the apex occurring at phase 0.5
+    # (mid-cycle). The timing factor is what couples the realized hop period to
+    # HOP_PERIOD: without it the policy launches from a crouch for a short, early
+    # apex and hops faster than the clock. It still does not prescribe the
+    # trajectory -- only when the apex must land.
+    "peak_hop_height": RewardTermCfg(
+      func=diogenes_mdp.peak_hop_height_reward,
+      weight=60.0,
       params={
         "hop_height": HOP_HEIGHT,
         "hop_period": HOP_PERIOD,
-        "flight_frac": HOP_FLIGHT_FRAC,
-        "std": 0.05,
+        # std=0.15 (not 0.05): a tight std gives zero reward gradient once the
+        # apex drifts above ~0.45 m, stranding an overshooting policy on a flat
+        # plateau with no pull back to target. 0.15 keeps a usable gradient
+        # across 0.35-0.57 m while still rewarding accuracy near the target.
+        "std": 0.15,
+        "phase_std": 0.12,
         "asset_cfg": slider_cfg(),
       },
     ),
-    # Action rate penalty: smooth, non-jerky targets.
-    "action_rate": RewardTermCfg(
-      func=mdp.action_rate_l2,
-      weight=-0.01,
+    # --- Contact-force shaping (naturalness / smoothness). ---
+    # Lateral GRF: strongly discourage shearing the floor (anti-slip).
+    "lateral_contact_force": RewardTermCfg(
+      func=diogenes_mdp.lateral_contact_force_l2,
+      weight=-0.0,
+      params={"sensor_name": FOOT_CONTACT_SENSOR},
+    ),
+    # Vertical GRF: gently bias toward softer pushes. Keep SMALL: the foot must
+    # push on the floor to hop, so a large weight here fights the task.
+    "vertical_contact_force": RewardTermCfg(
+      func=diogenes_mdp.vertical_contact_force_l2,
+      weight=-0.0,
+      params={"sensor_name": FOOT_CONTACT_SENSOR},
+    ),
+    # Foot slip: xy velocity AT THE TRUE CONTACT POINT while in contact.
+    # Reconstructed from the calf body twist evaluated at the sensor's reported
+    # contact position, because the foot is offset ~0.2 m from the calf body
+    # origin and the origin velocity is dominated by spurious omega x r from
+    # ordinary stance pivoting. See foot_slip in mdp.py. Needs the sensor's
+    # "pos" field (added to the contact sensor below).
+    "foot_slip": RewardTermCfg(
+      func=diogenes_mdp.foot_slip,
+      weight=-0.0,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "asset_cfg": SceneEntityCfg("robot", body_names=("calf_assy",)),
+      },
+    ),
+    # Soft landing: penalize impact force at first contact each cycle.
+    "soft_landing": RewardTermCfg(
+      func=velocity_mdp.soft_landing,
+      weight=-0.0,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "command_name": None,
+      },
+    ),
+    # --- Actuation regularizers. ---
+    # Electrical/mechanical power: penalize positive actuator power (energy
+    # efficiency, smoother motion). Reuses mjlab's term.
+    "electrical_power": RewardTermCfg(
+      func=mdp.electrical_power_cost,
+      weight=-2.0e-4,
+      params={"asset_cfg": power_joints_cfg()},
     ),
     # Torque magnitude penalty: energy-efficient actuation.
     "torque": RewardTermCfg(
       func=mdp.joint_torques_l2,
       weight=-1.0e-4,
       params={"asset_cfg": actuators_cfg()},
+    ),
+    # Action rate penalty: smooth, non-jerky targets.
+    "action_rate": RewardTermCfg(
+      func=mdp.action_rate_l2,
+      weight=-0.01,
     ),
     # Joint-limit avoidance: stay off the soft position limits.
     "joint_limits": RewardTermCfg(

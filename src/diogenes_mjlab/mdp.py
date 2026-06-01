@@ -1,9 +1,12 @@
 """Custom MDP terms for the Diogenes periodic-hopping task.
 
-This module adds the few task-specific functions that mjlab does not ship out
-of the box. Everything else (action-rate, torque, joint-limit penalties, joint
-pos/vel observations, last-action observation, time-out termination) is reused
-directly from ``mjlab.envs.mdp``.
+This module adds the task-specific functions that mjlab does not ship out of the
+box. Generic regularizers (action-rate, joint-limit, joint pos/vel observations,
+last-action observation, time-out termination) are reused directly from
+``mjlab.envs.mdp``. Generic contact rewards (foot slip, soft landing) and the
+electrical-power penalty are reused from ``mjlab.tasks.velocity.mdp`` and
+``mjlab.envs.mdp`` respectively; this file only adds what is genuinely specific
+to the phase-driven hop stand.
 
 Geometry note (important for signs)
 -----------------------------------
@@ -22,8 +25,20 @@ The phase clock
 A single global hop phase ``phi in [0, 1)`` advances with simulation time and
 wraps every ``hop_period`` seconds. It is derived from the per-env step counter
 ``env.episode_length_buf`` (reset to 0 on episode reset, incremented once per
-control step) times ``env.step_dt``. Both the reward and the observation read
-the same counter on the same step, so they stay perfectly in phase.
+control step) times ``env.step_dt``. The reward, the gait terms and the
+observation all read the same counter on the same step, so they stay perfectly
+in phase.
+
+Hop gait reward
+---------------
+Hop amplitude is shaped by a single phase-keyed term, ``peak_hop_height_reward``:
+once per cycle (at the phase wrap) it rewards how close the cycle's achieved
+*apex* carriage height got to the desired ``hop_height``, via a Gaussian on the
+error. There is deliberately no enforced flight/stance schedule: for a ballistic
+apex of height ``h`` the flight duration is fixed by physics, but the liftoff
+timing depends on how the leg extends and push, which the policy must discover
+rather than have prescribed. Letting the apex reward stand alone keeps the timing
+unconstrained.
 """
 
 from __future__ import annotations
@@ -34,7 +49,9 @@ from typing import TYPE_CHECKING
 import torch
 
 from mjlab.entity import Entity
+from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
+from mjlab.sensor import ContactSensor
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -69,8 +86,20 @@ def phase_clock(env: ManagerBasedRlEnv, hop_period: float = 0.6) -> torch.Tensor
   return torch.stack([torch.sin(angle), torch.cos(angle)], dim=-1)
 
 
+def _height_above_start(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
+  """Carriage height above its start position. Shape (num_envs,).
+
+  ``height_above_start = -slider_pos`` (see module docstring). Using index -1 of
+  the selected columns is robust whether ``joint_ids`` resolves to a list like
+  ``[0]`` or a slice; the slider is the only joint this cfg selects.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  slider = asset.data.joint_pos[:, asset_cfg.joint_ids]
+  return -slider[:, -1]
+
+
 ##
-# Slider (carriage) state.
+# Slider (carriage) state observations.
 ##
 
 
@@ -95,63 +124,241 @@ def slider_vel(
 
 
 ##
-# Hop reward.
+# Contact-force penalties (foot vs. floor).
+##
+# These read a ContactSensor configured with reduce="netforce", which sums all
+# foot/floor contacts into a single net wrench expressed in the GLOBAL frame.
+# In the global frame the z-component is the vertical force and the xy-plane
+# components are the lateral forces, so the two penalties below decompose
+# cleanly without any frame math here.
+
+
+def lateral_contact_force_l2(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+) -> torch.Tensor:
+  """Penalize lateral (world x, y) foot/ground contact force. Shape (num_envs,).
+
+  Minimizing tangential ground reaction discourages the foot from shearing,
+  scuffing or skating along the floor, yielding a smoother, more planted stance.
+  Requires the contact sensor to use ``reduce="netforce"`` (global-frame force).
+  """
+  sensor: ContactSensor = env.scene[sensor_name]
+  force = sensor.data.force  # [B, N, 3] global frame (netforce).
+  assert force is not None, (
+    f"Sensor '{sensor_name}' must request the 'force' field for "
+    "lateral_contact_force_l2."
+  )
+  lateral_sq = torch.sum(torch.square(force[..., :2]), dim=-1)  # [B, N]
+  return torch.sum(lateral_sq, dim=-1)  # [B]
+
+
+def vertical_contact_force_l2(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+) -> torch.Tensor:
+  """Penalize vertical (world z) foot/ground contact force. Shape (num_envs,).
+
+  A gentle bias toward lower peak ground reaction encourages compliant,
+  low-impact footfalls rather than slamming the floor. Keep the weight small:
+  the foot fundamentally MUST push on the floor to hop, so an over-large weight
+  here fights the task. Requires ``reduce="netforce"`` (global-frame force).
+  """
+  sensor: ContactSensor = env.scene[sensor_name]
+  force = sensor.data.force  # [B, N, 3] global frame (netforce).
+  assert force is not None, (
+    f"Sensor '{sensor_name}' must request the 'force' field for "
+    "vertical_contact_force_l2."
+  )
+  vertical_sq = torch.square(force[..., 2])  # [B, N]
+  return torch.sum(vertical_sq, dim=-1)  # [B]
+
+
+def foot_slip(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+  asset_cfg: SceneEntityCfg,
+) -> torch.Tensor:
+  """Penalize foot sliding: squared xy velocity AT THE CONTACT POINT while in contact.
+
+  Shape (num_envs,).
+
+  Why the contact point (not the body origin): the foot is offset ~0.2 m (the
+  calf link length) from the ``calf_assy`` body origin, which sits up at the
+  knee. A rigid body's point velocity is ``v_point = v_origin + omega x r``; with
+  a 0.2 m lever arm, ordinary stance rotation (the leg pivoting as the carriage
+  rises) injects a large spurious ``omega x r`` term into the *origin* velocity
+  even when the foot is perfectly planted. Reading the body-origin velocity would
+  therefore penalize legitimate pivoting and barely see true sliding.
+
+  We reconstruct the velocity at the actual contact point reported by the sensor
+  (``data.pos``, global frame): ``v_contact = v_origin + omega x (pos - origin)``,
+  using the calf body's world-frame linear and angular velocity. The xy component
+  is the true slip: ~0 when the foot pivots in place, nonzero only when the
+  contact point translates along the floor. ``asset_cfg`` must select the foot
+  body, e.g. ``body_names=("calf_assy",)``.
+
+  The sensor must request the ``found`` and ``pos`` fields. Only in-contact steps
+  are penalized, so the policy is free to move the foot in flight.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  sensor: ContactSensor = env.scene[sensor_name]
+  found = sensor.data.found
+  pos = sensor.data.pos  # [B, N, 3] contact point, global frame.
+  assert found is not None and pos is not None, (
+    f"Sensor '{sensor_name}' must request the 'found' and 'pos' fields for foot_slip."
+  )
+  in_contact = (found > 0).any(dim=-1).float()  # [B]
+
+  # Calf body twist and origin (single body selected by asset_cfg).
+  body_id = asset_cfg.body_ids
+  v_origin = asset.data.body_link_lin_vel_w[:, body_id]  # [B, 1, 3]
+  omega = asset.data.body_link_ang_vel_w[:, body_id]  # [B, 1, 3]
+  origin = asset.data.body_link_pos_w[:, body_id]  # [B, 1, 3]
+
+  # Collapse the (single) body axis to [B, 3].
+  v_origin = v_origin[:, 0]
+  omega = omega[:, 0]
+  origin = origin[:, 0]
+  # Use the first contact slot's position (netforce -> a single representative
+  # slot); shape [B, 3].
+  contact_pos = pos[:, 0]
+
+  # v_contact = v_origin + omega x (contact_pos - origin).
+  r = contact_pos - origin  # [B, 3]
+  v_contact = v_origin + torch.cross(omega, r, dim=-1)  # [B, 3]
+
+  vel_xy_sq = torch.sum(torch.square(v_contact[:, :2]), dim=-1)  # [B]
+  cost = vel_xy_sq * in_contact  # [B]
+
+  num_in_contact = torch.sum(in_contact)
+  mean_slip = torch.sum(torch.sqrt(vel_xy_sq) * in_contact) / torch.clamp(
+    num_in_contact, min=1.0
+  )
+  env.extras["log"]["Metrics/foot_slip_vel_mean"] = mean_slip
+  return cost
+
+
+##
+# Phase-driven gait shaping (replaces parabolic slider tracking).
 ##
 
 
-def _target_height(
-  phi: torch.Tensor, hop_height: float, flight_frac: float
-) -> torch.Tensor:
-  """Phase-conditioned target carriage height (m above start).
+class peak_hop_height_reward:
+  """Reward the cycle's peak carriage height AND the apex occurring at mid-cycle.
 
-  A hop is modelled as a ballistic flight arc followed by a stance interval:
+  Two coupled objectives, evaluated once per cycle:
 
-    * During the flight window ``phi in [0, flight_frac]`` the target traces a
-      downward-opening parabola - exactly the shape of a projectile launched
-      and landing under constant gravity - peaking at ``hop_height`` halfway
-      through the flight.
-    * During the remaining stance window the target is 0 (the foot is on the
-      ground), so the leg is asked to settle back to its start height before
-      the next hop.
+    1. *Height*: the cycle's peak carriage height should match ``hop_height``.
+    2. *Timing*: that peak (the apex) should occur at mid-cycle (phase 0.5).
 
-  Normalising the flight window to ``x in [0, 1]`` the parabola is
-  ``hop_height * 4 * x * (1 - x)``, which is 0 at the ends and ``hop_height``
-  at ``x = 0.5``.
-  """
-  x = phi / flight_frac
-  parabola = hop_height * 4.0 * x * (1.0 - x)
-  in_flight = phi <= flight_frac
-  return torch.where(in_flight, parabola, torch.zeros_like(phi))
+  Why the timing term matters: a pure peak-height reward is indifferent to *when*
+  and *how* the apex is reached, so the policy can launch from a partial crouch
+  (carriage already above the zero point at takeoff), giving a small ballistic
+  rise, a short flight, and a hop period far shorter than ``hop_period`` -- the
+  clock ends up decorative. Requiring the apex at mid-cycle forces the apex to
+  land at ``0.5 * hop_period`` into the cycle, which (for a ballistic arc that
+  starts and ends a cycle on the ground) pins the flight duration and hence the
+  whole hop period to ``hop_period``. The policy still chooses the trajectory;
+  it just cannot earn full credit with an early, shallow-rise apex.
 
+  Mechanics (mirrors the velocity task's ``feet_swing_height`` accumulator, but
+  keyed to the phase clock):
 
-def hop_height_tracking(
-  env: ManagerBasedRlEnv,
-  hop_height: float = 0.2,
-  hop_period: float = 0.6,
-  flight_frac: float = 0.7,
-  std: float = 0.05,
-  asset_cfg: SceneEntityCfg = SLIDER_CFG,
-) -> torch.Tensor:
-  """Reward for tracking the phase-conditioned hop height. Shape (num_envs,).
+    * Every step, track the running maximum carriage height in the current cycle
+      (``running_peak``) AND the phase at which that maximum occurred
+      (``peak_phase``).
+    * Detect the cycle boundary by watching the phase wrap ``phi: ~1 -> ~0``.
+      On the wrap step a cycle has *completed*, so we emit the combined reward
+      and reset the accumulators. On all other steps the term emits 0.
 
-  ``height_above_start = -slider_pos`` (see module docstring). The reward is a
-  Gaussian on the height error, equal to 1 when the carriage is exactly on the
-  target arc and decaying smoothly with a length scale of ``std`` metres.
+  Reward shape (emitted on the wrap step):
+
+      height_term = exp(-(peak - hop_height)**2 / std**2)            in [0, 1]
+      timing_term = exp(-(peak_phase - 0.5)**2 / phase_std**2)       in [0, 1]
+      reward      = height_term * timing_term
+
+  Multiplying (rather than adding) means BOTH must be satisfied for credit: a
+  perfectly-high apex at the wrong time, or a well-timed apex at the wrong
+  height, both score low. Using a product keeps the term bounded in [0, 1].
+
+  Because the reward fires only on the wrap step (one control step per
+  ``hop_period``), the per-second contribution is sparse; tune ``weight``
+  accordingly.
 
   Args:
-    hop_height: Peak target height of the hop, in metres above start.
-    hop_period: Duration of one hop cycle, in seconds.
-    flight_frac: Fraction of the period spent in the (airborne) flight arc.
-    std: Gaussian width on the height error, in metres.
+    hop_height: Desired apex height, metres above start.
+    hop_period: Cycle duration, seconds (also the phase-clock period).
+    std: Gaussian width on the height error, metres.
+    phase_std: Gaussian width on the apex-phase error, in phase units (fraction
+      of a cycle). ~0.12 lets the apex sit comfortably within the middle ~quarter
+      of the cycle before credit falls off; tighten to demand sharper timing.
     asset_cfg: Entity config selecting the slider joint.
   """
-  asset: Entity = env.scene[asset_cfg.name]
-  # Select the (single) slider column and collapse to shape (num_envs,). Using
-  # index -1 of the selected columns is robust whether joint_ids resolves to a
-  # list like [0] or a slice; the slider is the only joint this cfg selects.
-  slider = asset.data.joint_pos[:, asset_cfg.joint_ids]
-  height = -slider[:, -1]
-  phi = _phase(env, hop_period)
-  target = _target_height(phi, hop_height, flight_frac)
-  error = height - target
-  return torch.exp(-torch.square(error) / (std**2))
+
+  def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
+    self.running_peak = torch.full(
+      (env.num_envs,), -1.0e9, device=env.device, dtype=torch.float32
+    )
+    # Phase at which the running peak was last attained.
+    self.peak_phase = torch.zeros(env.num_envs, device=env.device, dtype=torch.float32)
+    # Previous-step phase, used to detect the wrap (decrease) boundary.
+    self.prev_phi = torch.zeros(env.num_envs, device=env.device, dtype=torch.float32)
+
+  def reset(self, env_ids: torch.Tensor) -> None:
+    self.running_peak[env_ids] = -1.0e9
+    self.peak_phase[env_ids] = 0.0
+    self.prev_phi[env_ids] = 0.0
+
+  def __call__(
+    self,
+    env: ManagerBasedRlEnv,
+    hop_height: float = 0.35,
+    hop_period: float = 0.6,
+    std: float = 0.05,
+    phase_std: float = 0.12,
+    asset_cfg: SceneEntityCfg = SLIDER_CFG,
+  ) -> torch.Tensor:
+    height = _height_above_start(env, asset_cfg)  # [B]
+    phi = _phase(env, hop_period)  # [B]
+
+    # A cycle completes when the phase wraps (this step's phi < last step's phi).
+    wrapped = phi < self.prev_phi  # [B]
+
+    # The completed cycle's apex is what the accumulators hold BEFORE this step's
+    # (wrap-step) height is folded in -- the wrap step's height belongs to the
+    # NEW cycle. So evaluate the reward against the current accumulators first.
+    height_err = self.running_peak - hop_height
+    height_term = torch.exp(-torch.square(height_err) / (std**2))
+    # Apex should occur at mid-cycle (phase 0.5).
+    phase_err = self.peak_phase - 0.5
+    timing_term = torch.exp(-torch.square(phase_err) / (phase_std**2))
+    reward_at_apex = height_term * timing_term
+    reward = torch.where(wrapped, reward_at_apex, torch.zeros_like(height_err))
+
+    # Log the completed-cycle peak and apex phase at each cycle boundary.
+    num_wraps = torch.sum(wrapped.float())
+    denom = torch.clamp(num_wraps, min=1.0)
+    env.extras["log"]["Metrics/peak_hop_height_mean"] = (
+      torch.sum(self.running_peak * wrapped.float()) / denom
+    )
+    env.extras["log"]["Metrics/apex_phase_mean"] = (
+      torch.sum(self.peak_phase * wrapped.float()) / denom
+    )
+
+    # Re-seed accumulators for wrapped envs with THIS step's sample (start of the
+    # new cycle); otherwise fold this step's height into the running max.
+    seed_peak = torch.where(
+      wrapped, height, torch.maximum(self.running_peak, height)
+    )
+    is_new_peak = height > self.running_peak  # [B]
+    seed_phase = torch.where(
+      wrapped,
+      phi,  # new cycle starts with this sample as its provisional apex
+      torch.where(is_new_peak, phi, self.peak_phase),
+    )
+    self.running_peak = seed_peak
+    self.peak_phase = seed_phase
+    self.prev_phi = phi
+
+    return reward
