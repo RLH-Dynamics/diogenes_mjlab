@@ -85,6 +85,9 @@ HOP_PERIOD = 0.9  # One hop cycle, in seconds. A clean 0.35 m ballistic hop has
 # Name of the foot/ground contact sensor (referenced by several reward terms).
 FOOT_CONTACT_SENSOR = "foot_ground_contact"
 
+# Name of the thigh/ground contact sensor (drives the flat-landing termination).
+THIGH_CONTACT_SENSOR = "thigh_ground_contact"
+
 # Entity-config factories. Each manager term must get its OWN SceneEntityCfg
 # instance, passed via ``params`` so the manager resolves it. Sharing a single
 # instance across terms is fragile (the manager mutates it in place during
@@ -162,11 +165,27 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     track_air_time=True,
   )
 
+  # Thigh/ground contact sensor: detects a flat, lengthwise landing where a
+  # thigh shell strikes the floor (the exploit that lets the policy land along
+  # the limb axis and induce ~zero knee torque). Only "found" is needed -- the
+  # termination just asks whether any thigh<->floor contact exists. The thigh
+  # shells are collidable only against the floor (see diogenes.xml contype/
+  # conaffinity), so this sensor never sees self/limb contacts.
+  thigh_contact_cfg = ContactSensorCfg(
+    name=THIGH_CONTACT_SENSOR,
+    primary=ContactMatch(mode="body", pattern="thigh_assy", entity="robot"),
+    secondary=ContactMatch(mode="geom", pattern="floor", entity="robot"),
+    fields=("found",),
+    reduce="netforce",
+    num_slots=1,
+    track_air_time=False,
+  )
+
   scene_cfg = SceneCfg(
     num_envs=4096,
     env_spacing=2.0,
     entities={"robot": get_diogenes_cfg()},
-    sensors=(foot_contact_cfg,),
+    sensors=(foot_contact_cfg, thigh_contact_cfg),
   )
 
   # ---------------------------------------------------------------------------
@@ -300,13 +319,13 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     # efficiency, smoother motion). Reuses mjlab's term.
     "electrical_power": RewardTermCfg(
       func=mdp.electrical_power_cost,
-      weight=-2.0e-4,
+      weight=-0.01,
       params={"asset_cfg": power_joints_cfg()},
     ),
     # Torque magnitude penalty: energy-efficient actuation.
     "torque": RewardTermCfg(
       func=mdp.joint_torques_l2,
-      weight=-1.0e-4,
+      weight=-0.01,
       params={"asset_cfg": actuators_cfg()},
     ),
     # Action rate penalty: smooth, non-jerky targets.
@@ -320,13 +339,45 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       weight=-1.0,
       params={"asset_cfg": actuated_joints_cfg()},
     ),
+    # --- One-time penalty on any failure termination. ---
+    # mjlab's standard term: fires (=1.0) on any non-timeout termination
+    # (joint_at_limit or thigh_ground_contact here; the time_out truncation is
+    # excluded). The env computes terminations before rewards, so the penalty
+    # lands on the same step the episode ends, before reset. Rewards are scaled
+    # by step_dt (0.02 s at 50 Hz control), so the realized one-step penalty is
+    # weight * 0.02; weight=-500 -> a -10 hit per failure.
+    "termination_penalty": RewardTermCfg(
+      func=mdp.is_terminated,
+      weight=-500.0,
+    ),
   }
 
   # ---------------------------------------------------------------------------
-  # Terminations: time-out only.
+  # Terminations.
   # ---------------------------------------------------------------------------
+  # time_out: a non-failure episode end (the value function bootstraps from the
+  # final state). joint_at_limit: a genuine FAILURE end (time_out defaults to
+  # False -> no bootstrap), so the policy learns that slamming a joint stop ends
+  # the episode with no future reward. This removes the "bottom out a joint on
+  # landing to dump impact energy into the constraint" exploit at the source:
+  # an episode that hits a limit terminates immediately and collects nothing
+  # more, which a limit-proximity penalty alone would only tax, not forbid.
   terminations = {
     "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
+    "joint_at_limit": TerminationTermCfg(
+      func=diogenes_mdp.joint_at_limit,
+      params={
+        "asset_cfg": actuated_joints_cfg(),
+        "margin": 0.02,
+      },
+    ),
+    # Flat-landing exploit guard: terminate if a thigh shell touches the floor.
+    # A genuine failure end (time_out=False) so the lengthwise landing collects
+    # no further reward.
+    "thigh_ground_contact": TerminationTermCfg(
+      func=diogenes_mdp.thigh_ground_contact,
+      params={"sensor_name": THIGH_CONTACT_SENSOR},
+    ),
   }
 
   cfg = ManagerBasedRlEnvCfg(

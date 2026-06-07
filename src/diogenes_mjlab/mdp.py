@@ -240,8 +240,108 @@ def foot_slip(
 
 
 ##
-# Phase-driven gait shaping (replaces parabolic slider tracking).
+# Terminations.
 ##
+
+
+def joint_at_limit(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg,
+  margin: float = 0.02,
+) -> torch.Tensor:
+  """Terminate when ANY selected joint reaches (within ``margin``) a hard limit.
+
+  Shape (num_envs,), bool.
+
+  Motivation: with the contact/slip/landing penalties zeroed, the most
+  energetically cheap policy can exploit the joint hard-stops as a free energy
+  sink -- driving the leg so that one or more joints bottom out on landing, so
+  the impact energy is absorbed by the position constraint (the boundary does
+  the braking) rather than by controlled motor work. Penalizing limit proximity
+  only taxes this; terminating on it removes the exploit outright, since an
+  episode that slams a stop ends immediately and collects no further reward.
+
+  Why a margin off the HARD limit (``joint_pos_limits``) rather than the soft
+  band: mjlab's ``soft_joint_pos_limits`` collapse onto the hard limits unless
+  ``articulation.soft_joint_pos_limit_factor`` is set (< 1), which this robot
+  does not set -- so a soft-limit test would only trip exactly at the boundary,
+  too late to discourage the approach and fragile to floating-point. Instead we
+  inset each joint's hard range by ``margin`` (a fraction of that joint's range)
+  and terminate when the joint crosses into the inset band. This catches the
+  bottoming-out behaviour just before the stop and gives a clean tuning knob
+  independent of the soft-limit factor.
+
+  IMPORTANT -- default/rest pose: this is a symmetric test on BOTH ends of every
+  selected joint, so the default (reset) pose MUST sit strictly inside the inset
+  band for all of them, or every env terminates on the first step. With
+  ``use_default_offset=True`` on the action, the default pose is also the centre
+  of the policy's operating range, so it should sit where the leg naturally
+  spends the hop cycle, not merely somewhere legal. For this robot the calf's
+  range is [0, pi/2] with its as-built default at 0.0 (exactly the lower stop)
+  and the thigh's default at 0.0 (near its upper stop), so ``DEFAULT_INIT`` in
+  diogenes_constants.py must be moved off those limits before enabling this term
+  (e.g. a mildly crouched stance). At margin=0.02 the safe interior is roughly
+  hip [-0.75, 0.75], thigh [-1.53, 0.23], calf [0.03, 1.54].
+
+  Args:
+    asset_cfg: Entity config selecting the joints to monitor (typically the
+      three actuated leg joints; the unactuated slider is excluded).
+    margin: Inset from each hard limit as a fraction of that joint's full range.
+      0.0 means terminate only at the exact hard limit; 0.02 leaves a 2% guard
+      band at each end. Joints with no finite range are ignored.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  joint_ids = asset_cfg.joint_ids
+  pos = asset.data.joint_pos[:, joint_ids]  # [B, J]
+  limits = asset.data.joint_pos_limits[:, joint_ids]  # [B, J, 2] (lower, upper)
+  lower = limits[..., 0]
+  upper = limits[..., 1]
+
+  # Inset the range by `margin` * range at each end. Guard against non-finite
+  # ranges (unlimited joints -> [-inf, inf]); their inset bounds stay infinite,
+  # so the comparisons below are never True for them.
+  rng = upper - lower
+  inset = margin * rng
+  low_thresh = lower + inset
+  high_thresh = upper - inset
+
+  at_lower = pos <= low_thresh  # [B, J]
+  at_upper = pos >= high_thresh  # [B, J]
+  at_limit = at_lower | at_upper  # [B, J]
+
+  # Log the fraction of (env, joint) pairs sitting at a limit, for monitoring.
+  env.extras["log"]["Metrics/joint_at_limit_frac"] = at_limit.float().mean()
+
+  return at_limit.any(dim=-1)  # [B]
+
+
+def thigh_ground_contact(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+) -> torch.Tensor:
+  """Terminate when the thigh contacts the ground plane. Shape (num_envs,), bool.
+
+  Targets the flat-landing exploit: the policy learned to land with the (nearly
+  straight) leg lying lengthwise on the floor, so the impact runs along the limb
+  axis and induces almost no knee torque -- sidestepping the joint-limit
+  termination. With the thigh shells now collidable against the floor (see
+  diogenes.xml), the thigh strikes the ground slightly before the foot in such a
+  landing, so any thigh<->floor contact flags the exploit. Terminating on it (a
+  genuine failure end, time_out=False) makes the flat landing collect no further
+  reward, removing the incentive.
+
+  Reads only the ``found`` field of the thigh contact sensor; the thigh shells
+  collide solely with the floor, so a positive ``found`` always means a real
+  thigh/ground contact.
+  """
+  sensor: ContactSensor = env.scene[sensor_name]
+  found = sensor.data.found  # [B, N]
+  assert found is not None, (
+    f"Sensor '{sensor_name}' must request the 'found' field for thigh_ground_contact."
+  )
+  in_contact = (found > 0).any(dim=-1)  # [B]
+  env.extras["log"]["Metrics/thigh_contact_frac"] = in_contact.float().mean()
+  return in_contact
 
 
 class peak_hop_height_reward:
