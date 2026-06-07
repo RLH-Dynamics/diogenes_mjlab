@@ -462,3 +462,226 @@ class peak_hop_height_reward:
     self.prev_phi = phi
 
     return reward
+
+
+##
+# Trajectory-tracking rewards (gravity-exact dual-parabolic slider + foot xy hold).
+##
+# Geometry facts (verified by compiling the model; mjlab 1.4.0 / mujoco 3.9.0):
+#   * The slider sits ABOVE the leg joints, so its zero is fixed in the
+#     kinematic tree and does NOT depend on hip/thigh/calf:
+#         carriage_height_above_start = -slider_pos  (exact, pose-independent).
+#   * Foot world position decomposes additively:
+#         foot_world = (-slider) * z_hat + p0(hip, thigh, calf).
+#     The hip joint translates the foot in world x.
+#   * Units are METERS and RADIANS; no <mesh scale> is applied, so STL/mesh
+#     coordinates are in meters. The foot-center mesh coordinate (0, 0, -0.25) m
+#     transformed through the calf geom's pos+quat gives the body-frame offset
+#     FOOT_OFFSET_B below (verified two ways against MuJoCo FK to ~1e-7 m).
+
+# Foot-center offset in the calf_assy body frame (meters).
+FOOT_OFFSET_B: tuple[float, float, float] = (-0.176776, 0.176777, -0.014)
+
+# Foot-center world (x, y) at the default pose (hip=0, thigh=-0.6, calf=0.6), m.
+# Recapture if you change the default pose or FOOT_OFFSET_B.
+DEFAULT_FOOT_REF_XY: tuple[float, float] = (0.00250, -0.09979)
+
+# Standard gravity (m/s^2). The flight arc is a TRUE free-fall parabola at this
+# acceleration, so its duration is fixed by physics, not chosen.
+GRAVITY: float = 9.81
+
+
+def _quat_rotate(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
+  """Rotate vec by quat (w, x, y, z), batched. quat:[B,4], vec:[B,3] -> [B,3].
+
+  MuJoCo / mjlab store quaternions as (w, x, y, z).
+  """
+  w = quat[:, 0:1]
+  xyz = quat[:, 1:4]
+  t = 2.0 * torch.cross(xyz, vec, dim=-1)
+  return vec + w * t + torch.cross(xyz, t, dim=-1)
+
+
+def dual_parabola_timing(
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+) -> tuple[float, float, float, float, float]:
+  """Solve the gravity-exact dual-parabola timing from geometry alone.
+
+  Everything is derived from physics; there is NO free period parameter.
+
+  FLIGHT arc (true free fall at -gravity), amplitude Hf = traj_max - traj_transition:
+    * Leaves traj_transition moving UP at v0, rises Hf, falls back to
+      traj_transition moving DOWN at v0, with
+          v0        = sqrt(2 * gravity * Hf)          (speed at the transition)
+          T_flight  = 2 * sqrt(2 * Hf / gravity)      (full up+down flight time)
+
+  RECOVERY arc (constant acceleration +a), amplitude Hr = traj_transition - traj_min:
+    * Velocity continuity forces the recovery to ENTER at -v0 (matching the end
+      of flight) and LEAVE at +v0 (matching the start of the next flight). A
+      constant-accel arc that decelerates from v0 to 0 over a drop of Hr needs
+          a         = v0^2 / (2 * Hr) = gravity * Hf / Hr   (the constant accel)
+          T_recovery = 2 * v0 / a                            (down+back up time)
+
+  Total period and the phase split:
+          T_total     = T_flight + T_recovery
+          flight_frac = T_flight / T_total
+
+  Args:
+    traj_min, traj_max, traj_transition: trajectory heights, z rel origin (m),
+      with traj_max >= traj_transition >= traj_min.
+    gravity: free-fall acceleration for the flight arc (m/s^2).
+
+  Returns:
+    (T_total, flight_frac, v0, recovery_accel, T_flight) -- seconds / m·s / etc.
+  """
+  Hf = traj_max - traj_transition  # flight amplitude (>= 0)
+  Hr = traj_transition - traj_min  # recovery amplitude (> 0 required)
+  assert Hf >= 0.0, "Require traj_max >= traj_transition."
+  assert Hr > 0.0, "Require traj_transition > traj_min (a finite recovery dip)."
+
+  v0 = math.sqrt(2.0 * gravity * Hf)
+  t_flight = 2.0 * math.sqrt(2.0 * Hf / gravity)
+  recovery_accel = gravity * Hf / Hr
+  t_recovery = 2.0 * v0 / recovery_accel
+  t_total = t_flight + t_recovery
+  flight_frac = t_flight / t_total
+  return t_total, flight_frac, v0, recovery_accel, t_flight
+
+
+def dual_parabola_reference(
+  phi: torch.Tensor,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+) -> torch.Tensor:
+  """Reference carriage height h_ref(phi). Shape == phi.shape. All z's rel origin.
+
+  The cycle (phase phi in [0,1)) is two parabolic arcs meeting at
+  ``traj_transition``, parametrized DIRECTLY by the physical motion (see
+  ``dual_parabola_timing``):
+
+    * FLIGHT arc, phi in [0, flight_frac]: true free fall at -gravity. Real time
+      within the arc is t = phi * T_total, so
+          h = traj_transition + v0 * t - 0.5 * gravity * t^2,
+      which rises to apex traj_max and returns to traj_transition. Its duration
+      is EXACTLY the Earth-gravity ballistic time for amplitude Hf.
+
+    * RECOVERY arc, phi in [flight_frac, 1): constant deceleration/acceleration
+      at +recovery_accel. With t' = phi * T_total - T_flight,
+          h = traj_transition - v0 * t' + 0.5 * recovery_accel * t'^2,
+      which dips to traj_min (at zero velocity) and returns to traj_transition,
+      entering at -v0 and leaving at +v0 so velocity is continuous at both joins.
+
+  Because the flight time is fixed by gravity and the recovery time by velocity
+  continuity, the whole period T_total is derived, not chosen.
+
+  Args:
+    traj_min: lowest carriage height in the cycle (recovery dip), z rel origin.
+    traj_max: apex carriage height (flight peak), z rel origin.
+    traj_transition: height where flight and recovery meet (the cycle boundary
+      level), z rel origin.
+    gravity: free-fall acceleration for the flight arc (m/s^2).
+  """
+  t_total, flight_frac, v0, recovery_accel, t_flight = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  t = phi * t_total  # real time within the cycle, seconds
+
+  # FLIGHT: free fall from traj_transition, up at v0, accel -gravity.
+  flight_h = traj_transition + v0 * t - 0.5 * gravity * torch.square(t)
+
+  # RECOVERY: constant accel from traj_transition, down at v0, accel +recovery_accel.
+  tr = t - t_flight
+  recovery_h = (
+    traj_transition - v0 * tr + 0.5 * recovery_accel * torch.square(tr)
+  )
+
+  return torch.where(phi < flight_frac, flight_h, recovery_h)
+
+
+def slider_dual_parabola_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  std: float,
+  gravity: float = GRAVITY,
+  asset_cfg: SceneEntityCfg = SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking the gravity-exact dual-parabola height. (num_envs,).
+
+  carriage_height_above_start = -slider_pos (verified; see section notes). The
+  cycle period is DERIVED from (traj_min, traj_max, traj_transition, gravity) via
+  ``dual_parabola_timing`` -- there is no period argument. The same derived
+  period must drive the phase clock (the observation and any other phase-keyed
+  terms); see ``dual_parabola_period`` in env_cfgs for how this is shared.
+
+  Args:
+    traj_min, traj_max, traj_transition: trajectory geometry, z rel origin (m).
+    std: Gaussian width on the height-tracking error (meters).
+    gravity: free-fall acceleration for the flight arc (m/s^2).
+    asset_cfg: entity config selecting the slider joint, joint_names=("slider",).
+  """
+  t_total, _, _, recovery_accel, _ = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  asset: Entity = env.scene[asset_cfg.name]
+  slider = asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]  # [B]
+  height = -slider  # [B], meters above start
+
+  phi = _phase(env, t_total)  # [B], uses the derived period
+  h_ref = dual_parabola_reference(
+    phi, traj_min, traj_max, traj_transition, gravity
+  )  # [B]
+
+  err = height - h_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_height_ref_mean"] = h_ref.mean()
+  env.extras["log"]["Metrics/slider_height_mean"] = height.mean()
+  return reward
+
+
+def foot_xy_position_tracking(
+  env: ManagerBasedRlEnv,
+  asset_cfg: SceneEntityCfg,
+  ref_xy: tuple[float, float] = DEFAULT_FOOT_REF_XY,
+  std: float = 0.05,
+  foot_offset_b: tuple[float, float, float] = FOOT_OFFSET_B,
+) -> torch.Tensor:
+  """Keep the point-foot world (x, y) at ``ref_xy``. Shape (num_envs,).
+
+  Foot center = calf_assy body pose composed with ``foot_offset_b`` (body frame).
+  The hip joint translates the foot in x, so penalizing xy drift stops the leg
+  from swinging the foot sideways during the hop.
+
+  Args:
+    asset_cfg: entity config selecting the foot body, body_names=("calf_assy",).
+    ref_xy: target world (x, y) for the foot center (meters).
+    std: Gaussian width on the xy error (meters).
+    foot_offset_b: foot-center offset in the calf_assy body frame (meters).
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  body_id = asset_cfg.body_ids  # single body
+
+  origin = asset.data.body_link_pos_w[:, body_id][:, 0]  # [B, 3]
+  quat = asset.data.body_link_quat_w[:, body_id][:, 0]  # [B, 4] (w, x, y, z)
+
+  offset = torch.tensor(
+    foot_offset_b, device=origin.device, dtype=origin.dtype
+  ).expand(origin.shape[0], 3)  # [B, 3]
+  foot_w = origin + _quat_rotate(quat, offset)  # [B, 3]
+
+  ref = torch.tensor(ref_xy, device=origin.device, dtype=origin.dtype)  # [2]
+  dist_sq = torch.sum(torch.square(foot_w[:, :2] - ref), dim=-1)  # [B]
+  reward = torch.exp(-dist_sq / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/foot_xy_err_mean"] = torch.sqrt(dist_sq).mean()
+  return reward
