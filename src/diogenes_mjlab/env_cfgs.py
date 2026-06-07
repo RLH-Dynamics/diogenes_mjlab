@@ -32,11 +32,6 @@ Reward design
                                    carriage reference (owns amplitude AND timing).
   * ``foot_xy_position``        : dense Gaussian keeping the point-foot's world
                                    (x, y) fixed, so the leg hops straight up/down.
-  * ``peak_hop_height``         : DISABLED (weight 0). It rewarded the apex at
-                                   mid-cycle (phase 0.5), but with gravity-exact
-                                   timing the apex sits at phase flight_frac/2
-                                   (~0.39), so it would fight the dense tracker.
-                                   Left in place (weight 0) for optional re-tuning.
   * Naturalness/smoothness + actuation regularizers: unchanged.
 
 Foot/ground contact is measured by a ``ContactSensor`` (primary ``calf_assy``,
@@ -72,9 +67,6 @@ from .diogenes.diogenes_constants import get_diogenes_cfg
 # Names of the XML-defined <position> actuators (== the actuated joint names).
 DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
 
-# Hop task parameters (retained for the optional peak_hop_height term).
-HOP_HEIGHT = 0.35  # Peak target height above start, in metres.
-
 # ---------------------------------------------------------------------------
 # Gravity-exact dual-parabolic slider trajectory geometry. All three heights are
 # z-values RELATIVE TO THE SLIDER ORIGIN (== the carriage start position; height
@@ -101,9 +93,6 @@ TRAJ_T = diogenes_mdp.dual_parabola_timing(
 
 # Name of the foot/ground contact sensor (referenced by several reward terms).
 FOOT_CONTACT_SENSOR = "foot_ground_contact"
-
-# Name of the thigh/ground contact sensor (drives the flat-landing termination).
-THIGH_CONTACT_SENSOR = "thigh_ground_contact"
 
 # Entity-config factories. Each manager term must get its OWN SceneEntityCfg
 # instance, passed via ``params`` so the manager resolves it.
@@ -169,21 +158,11 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     track_air_time=True,
   )
 
-  thigh_contact_cfg = ContactSensorCfg(
-    name=THIGH_CONTACT_SENSOR,
-    primary=ContactMatch(mode="body", pattern="thigh_assy", entity="robot"),
-    secondary=ContactMatch(mode="geom", pattern="floor", entity="robot"),
-    fields=("found",),
-    reduce="netforce",
-    num_slots=1,
-    track_air_time=False,
-  )
-
   scene_cfg = SceneCfg(
     num_envs=4096,
     env_spacing=2.0,
     entities={"robot": get_diogenes_cfg()},
-    sensors=(foot_contact_cfg, thigh_contact_cfg),
+    sensors=(foot_contact_cfg,),
   )
 
   # ---------------------------------------------------------------------------
@@ -268,21 +247,6 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "foot_offset_b": diogenes_mdp.FOOT_OFFSET_B,
       },
     ),
-    # --- Hop amplitude + timing: DISABLED. ---
-    # Rewarded the apex at mid-cycle (phase 0.5); gravity-exact timing puts the
-    # apex at phase flight_frac/2 (~0.39), so this would fight the dense tracker.
-    # Kept at weight 0 so it is inert but easy to re-enable/retune if wanted.
-    "peak_hop_height": RewardTermCfg(
-      func=diogenes_mdp.peak_hop_height_reward,
-      weight=0.0,
-      params={
-        "hop_height": HOP_HEIGHT,
-        "hop_period": TRAJ_T,
-        "std": 0.15,
-        "phase_std": 0.12,
-        "asset_cfg": slider_cfg(),
-      },
-    ),
     # --- Contact-force shaping (naturalness / smoothness). ---
     "lateral_contact_force": RewardTermCfg(
       func=diogenes_mdp.lateral_contact_force_l2,
@@ -348,10 +312,6 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         "asset_cfg": actuated_joints_cfg(),
         "margin": 0.02,
       },
-    ),
-    "thigh_ground_contact": TerminationTermCfg(
-      func=diogenes_mdp.thigh_ground_contact,
-      params={"sensor_name": THIGH_CONTACT_SENSOR},
     ),
   }
 

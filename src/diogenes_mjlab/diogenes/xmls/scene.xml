@@ -19,12 +19,11 @@
 
     <worldbody>
         <light pos="0 0 3.5" dir="0 0 -1" directional="true" />
-        <!-- Floor collides with both the foot (contype 2) and the thigh shells
-             (contype 4) but the limb parts do not collide with each other. The
-             floor's conaffinity 6 = 0b110 matches foot contype 2 and thigh
-             contype 4; contype 1 is a distinct bit the limbs' conaffinity (1)
-             matches so the limb<->floor pair triggers from both directions. -->
+        <!-- Floor collides with the foot (contype 2) only; all other parts use
+             contype/conaffinity 0 and never collide. conaffinity 2 matches foot
+             contype 2; contype 1 is matched by the foot's conaffinity 1 so the
+             pair triggers from both directions. -->
         <geom name="floor" size="0 0 0.05" pos="0 0 0" type="plane" material="groundplane"
-            contype="1" conaffinity="6" />
+            contype="1" conaffinity="2" />
     </worldbody>
 </mujoco>

@@ -29,16 +29,6 @@ control step) times ``env.step_dt``. The reward, the gait terms and the
 observation all read the same counter on the same step, so they stay perfectly
 in phase.
 
-Hop gait reward
----------------
-Hop amplitude is shaped by a single phase-keyed term, ``peak_hop_height_reward``:
-once per cycle (at the phase wrap) it rewards how close the cycle's achieved
-*apex* carriage height got to the desired ``hop_height``, via a Gaussian on the
-error. There is deliberately no enforced flight/stance schedule: for a ballistic
-apex of height ``h`` the flight duration is fixed by physics, but the liftoff
-timing depends on how the leg extends and push, which the policy must discover
-rather than have prescribed. Letting the apex reward stand alone keeps the timing
-unconstrained.
 """
 
 from __future__ import annotations
@@ -49,7 +39,6 @@ from typing import TYPE_CHECKING
 import torch
 
 from mjlab.entity import Entity
-from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
 
@@ -314,154 +303,6 @@ def joint_at_limit(
 
   return at_limit.any(dim=-1)  # [B]
 
-
-def thigh_ground_contact(
-  env: ManagerBasedRlEnv,
-  sensor_name: str,
-) -> torch.Tensor:
-  """Terminate when the thigh contacts the ground plane. Shape (num_envs,), bool.
-
-  Targets the flat-landing exploit: the policy learned to land with the (nearly
-  straight) leg lying lengthwise on the floor, so the impact runs along the limb
-  axis and induces almost no knee torque -- sidestepping the joint-limit
-  termination. With the thigh shells now collidable against the floor (see
-  diogenes.xml), the thigh strikes the ground slightly before the foot in such a
-  landing, so any thigh<->floor contact flags the exploit. Terminating on it (a
-  genuine failure end, time_out=False) makes the flat landing collect no further
-  reward, removing the incentive.
-
-  Reads only the ``found`` field of the thigh contact sensor; the thigh shells
-  collide solely with the floor, so a positive ``found`` always means a real
-  thigh/ground contact.
-  """
-  sensor: ContactSensor = env.scene[sensor_name]
-  found = sensor.data.found  # [B, N]
-  assert found is not None, (
-    f"Sensor '{sensor_name}' must request the 'found' field for thigh_ground_contact."
-  )
-  in_contact = (found > 0).any(dim=-1)  # [B]
-  env.extras["log"]["Metrics/thigh_contact_frac"] = in_contact.float().mean()
-  return in_contact
-
-
-class peak_hop_height_reward:
-  """Reward the cycle's peak carriage height AND the apex occurring at mid-cycle.
-
-  Two coupled objectives, evaluated once per cycle:
-
-    1. *Height*: the cycle's peak carriage height should match ``hop_height``.
-    2. *Timing*: that peak (the apex) should occur at mid-cycle (phase 0.5).
-
-  Why the timing term matters: a pure peak-height reward is indifferent to *when*
-  and *how* the apex is reached, so the policy can launch from a partial crouch
-  (carriage already above the zero point at takeoff), giving a small ballistic
-  rise, a short flight, and a hop period far shorter than ``hop_period`` -- the
-  clock ends up decorative. Requiring the apex at mid-cycle forces the apex to
-  land at ``0.5 * hop_period`` into the cycle, which (for a ballistic arc that
-  starts and ends a cycle on the ground) pins the flight duration and hence the
-  whole hop period to ``hop_period``. The policy still chooses the trajectory;
-  it just cannot earn full credit with an early, shallow-rise apex.
-
-  Mechanics (mirrors the velocity task's ``feet_swing_height`` accumulator, but
-  keyed to the phase clock):
-
-    * Every step, track the running maximum carriage height in the current cycle
-      (``running_peak``) AND the phase at which that maximum occurred
-      (``peak_phase``).
-    * Detect the cycle boundary by watching the phase wrap ``phi: ~1 -> ~0``.
-      On the wrap step a cycle has *completed*, so we emit the combined reward
-      and reset the accumulators. On all other steps the term emits 0.
-
-  Reward shape (emitted on the wrap step):
-
-      height_term = exp(-(peak - hop_height)**2 / std**2)            in [0, 1]
-      timing_term = exp(-(peak_phase - 0.5)**2 / phase_std**2)       in [0, 1]
-      reward      = height_term * timing_term
-
-  Multiplying (rather than adding) means BOTH must be satisfied for credit: a
-  perfectly-high apex at the wrong time, or a well-timed apex at the wrong
-  height, both score low. Using a product keeps the term bounded in [0, 1].
-
-  Because the reward fires only on the wrap step (one control step per
-  ``hop_period``), the per-second contribution is sparse; tune ``weight``
-  accordingly.
-
-  Args:
-    hop_height: Desired apex height, metres above start.
-    hop_period: Cycle duration, seconds (also the phase-clock period).
-    std: Gaussian width on the height error, metres.
-    phase_std: Gaussian width on the apex-phase error, in phase units (fraction
-      of a cycle). ~0.12 lets the apex sit comfortably within the middle ~quarter
-      of the cycle before credit falls off; tighten to demand sharper timing.
-    asset_cfg: Entity config selecting the slider joint.
-  """
-
-  def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRlEnv):
-    self.running_peak = torch.full(
-      (env.num_envs,), -1.0e9, device=env.device, dtype=torch.float32
-    )
-    # Phase at which the running peak was last attained.
-    self.peak_phase = torch.zeros(env.num_envs, device=env.device, dtype=torch.float32)
-    # Previous-step phase, used to detect the wrap (decrease) boundary.
-    self.prev_phi = torch.zeros(env.num_envs, device=env.device, dtype=torch.float32)
-
-  def reset(self, env_ids: torch.Tensor) -> None:
-    self.running_peak[env_ids] = -1.0e9
-    self.peak_phase[env_ids] = 0.0
-    self.prev_phi[env_ids] = 0.0
-
-  def __call__(
-    self,
-    env: ManagerBasedRlEnv,
-    hop_height: float = 0.35,
-    hop_period: float = 0.6,
-    std: float = 0.05,
-    phase_std: float = 0.12,
-    asset_cfg: SceneEntityCfg = SLIDER_CFG,
-  ) -> torch.Tensor:
-    height = _height_above_start(env, asset_cfg)  # [B]
-    phi = _phase(env, hop_period)  # [B]
-
-    # A cycle completes when the phase wraps (this step's phi < last step's phi).
-    wrapped = phi < self.prev_phi  # [B]
-
-    # The completed cycle's apex is what the accumulators hold BEFORE this step's
-    # (wrap-step) height is folded in -- the wrap step's height belongs to the
-    # NEW cycle. So evaluate the reward against the current accumulators first.
-    height_err = self.running_peak - hop_height
-    height_term = torch.exp(-torch.square(height_err) / (std**2))
-    # Apex should occur at mid-cycle (phase 0.5).
-    phase_err = self.peak_phase - 0.5
-    timing_term = torch.exp(-torch.square(phase_err) / (phase_std**2))
-    reward_at_apex = height_term * timing_term
-    reward = torch.where(wrapped, reward_at_apex, torch.zeros_like(height_err))
-
-    # Log the completed-cycle peak and apex phase at each cycle boundary.
-    num_wraps = torch.sum(wrapped.float())
-    denom = torch.clamp(num_wraps, min=1.0)
-    env.extras["log"]["Metrics/peak_hop_height_mean"] = (
-      torch.sum(self.running_peak * wrapped.float()) / denom
-    )
-    env.extras["log"]["Metrics/apex_phase_mean"] = (
-      torch.sum(self.peak_phase * wrapped.float()) / denom
-    )
-
-    # Re-seed accumulators for wrapped envs with THIS step's sample (start of the
-    # new cycle); otherwise fold this step's height into the running max.
-    seed_peak = torch.where(
-      wrapped, height, torch.maximum(self.running_peak, height)
-    )
-    is_new_peak = height > self.running_peak  # [B]
-    seed_phase = torch.where(
-      wrapped,
-      phi,  # new cycle starts with this sample as its provisional apex
-      torch.where(is_new_peak, phi, self.peak_phase),
-    )
-    self.running_peak = seed_peak
-    self.peak_phase = seed_phase
-    self.prev_phi = phi
-
-    return reward
 
 
 ##

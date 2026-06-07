@@ -16,32 +16,19 @@
            actuators, bearings, spacers) should never generate contacts. Leaving
            them all collidable produced dozens of simultaneous constraint rows
            per env and triggered "nefc overflow" clamping. We re-enable collision
-           only on the foot via the "foot" class below, and on the two long
-           thigh shells via the "thigh_collision" class. -->
+           only on the foot via the "foot" class below. -->
       <default class="collision">
         <geom group="3" contype="0" conaffinity="0"/>
       </default>
       <!-- Foot collision: re-enable contact against the world/floor ONLY.
            contype/conaffinity bits are chosen so each limb part collides with
-           the floor but NOT with other limb parts (no thigh<->foot, no
-           self-collision), which would otherwise add spurious internal
-           constraint rows. Collision happens iff
-           (contype_a & conaffinity_b) | (contype_b & conaffinity_a) != 0.
-           floor = contype 1 / conaffinity 6 (see scene.xml);
-           foot  = contype 2 / conaffinity 1  -> matches floor only;
-           thigh = contype 4 / conaffinity 1  -> matches floor only. -->
+           the floor but NOT with other limb parts (no self-collision), which
+           would otherwise add spurious internal constraint rows. Collision
+           happens iff (contype_a & conaffinity_b) | (contype_b & conaffinity_a) != 0.
+           floor = contype 1 / conaffinity 2 (see scene.xml);
+           foot  = contype 2 / conaffinity 1  -> matches floor only. -->
       <default class="foot">
         <geom group="3" contype="2" conaffinity="1"/>
-      </default>
-      <!-- Thigh collision: re-enable contact against the world/floor so a flat,
-           lengthwise landing (thigh shell striking the ground before the foot)
-           is detectable. Kept on the two long thigh shells only -- enabling the
-           small inner parts (spacers, actuator housing) would add contacts
-           without improving flat-landing detection and risks nefc overflow.
-           contype 4 / conaffinity 1 -> matches the floor only (not the foot,
-           not the other thigh shell). -->
-      <default class="thigh_collision">
-        <geom group="3" contype="4" conaffinity="1"/>
       </default>
     </default>
   </default>
@@ -91,15 +78,13 @@
             <!-- Joint from hip_assy to thigh_assy -->
             <joint axis="0 0 1" name="thigh" type="hinge" range="-1.5707963267948966 0.26179938779914913"/>
             <inertial pos="0.00310674 -0.0292718 -0.0585998" mass="1.38666" fullinertia="0.00703968 0.0017677 0.00681752 0.000414935 -0.000132505 0.0012537"/>
-            <!-- Part left_thigh___l (long thigh shell: collidable for flat-landing detection) -->
+            <!-- Part left_thigh___l -->
             <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___l" material="left_thigh___l_material"/>
-            <geom type="mesh" class="thigh_collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___l" material="left_thigh___l_material"/>
             <!-- Part knee_spacer -->
             <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer" material="knee_spacer_material"/>
             <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="knee_spacer" material="knee_spacer_material"/>
-            <!-- Part left_thigh___r (long thigh shell: collidable for flat-landing detection) -->
+            <!-- Part left_thigh___r -->
             <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___r" material="left_thigh___r_material"/>
-            <geom type="mesh" class="thigh_collision" pos="0 0 -0.0275" quat="0.5 -0.5 -0.5 -0.5" mesh="left_thigh___r" material="left_thigh___r_material"/>
             <!-- Part rs03_3 -->
             <geom type="mesh" class="visual" pos="-0 0 -0.045" quat="0.690346 -0.690346 0.153046 -0.153046" mesh="rs03" material="rs03_material"/>
             <geom type="mesh" class="collision" pos="-0 0 -0.045" quat="0.690346 -0.690346 0.153046 -0.153046" mesh="rs03" material="rs03_material"/>
