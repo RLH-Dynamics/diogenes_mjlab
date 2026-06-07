@@ -40,18 +40,56 @@ convention (verified against MuJoCo): the leg_mount body is rotated 180 deg abou
 X, so the slider axis points along world -Z and the carriage height above start
 equals ``-slider_pos``. See ``mdp.py`` for details.
 
+Monitoring / logging
+--------------------
+Two cooperating instrumentation layers are wired in from ``monitoring.py``:
+
+  * ``cfg.metrics`` exposes every requested channel (foot contact forces, joint
+    torques, joint mechanical powers, slider pos/vel/acc, joint pos/vel) as
+    per-step scalar metric terms. mjlab's Viser viewer auto-plots these LIVE in
+    its **Metrics** tab -- toggle any subset on/off and watch them in real time.
+  * ``cfg.recorders`` adds a ``DiogenesCsvRecorder`` that writes one CSV row per
+    control step (full raw channels) under ``logs/diogenes_monitor/`` for offline
+    analysis in Excel and cross-run comparison.
+
+Both are controlled by flags on ``diogenes_env_cfg`` (``monitor``, ``record_csv``)
+and default ON for ``play`` (single env, the natural place to inspect) and OFF
+for training (4096 envs -- the metric plots still work there, but per-step CSV of
+one env is rarely what you want during bulk training; flip ``record_csv=True`` to
+enable).
+
+Toggling without editing code
+-----------------------------
+The same switches are exposed as environment variables read at config-build time,
+so you can flip them straight from the command line (no source edit, no mjlab
+fork). Most useful is enabling the CSV during training, or forcing it off in play::
+
+    DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat            # log in training
+    DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...        # force off in play
+    DIOGENES_CSV_TAG=ablationA DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
+
+Recognized vars: ``DIOGENES_RECORD_CSV`` and ``DIOGENES_MONITOR``
+(1/true/yes/on or 0/false/no/off) and ``DIOGENES_CSV_TAG`` (filename label). An
+explicit keyword argument to ``diogenes_env_cfg`` always wins over the env var.
+See the "Terminal-toggle support" block near ``diogenes_env_cfg`` for the full
+precedence rules and rationale.
+
 Run a trained policy with::
 
     uv run play Diogenes-Flat
 """
 
+import os
+
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp
 from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.observation_manager import (
   ObservationGroupCfg,
   ObservationTermCfg,
 )
+from mjlab.managers.recorder_manager import RecorderTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
@@ -62,6 +100,7 @@ from mjlab.sim.sim import MujocoCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
 
 from . import mdp as diogenes_mdp
+from . import monitoring
 from .diogenes.diogenes_constants import get_diogenes_cfg
 
 # Names of the XML-defined <position> actuators (== the actuated joint names).
@@ -127,13 +166,193 @@ def calf_body_cfg() -> SceneEntityCfg:
   return SceneEntityCfg("robot", body_names=("calf_assy",))
 
 
-def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+def monitored_joints_cfg() -> SceneEntityCfg:
+  """Selects the three actuated joints, order-preserved, for monitoring.
+
+  Order matches ``monitoring.JOINT_NAMES`` = (hip, thigh, calf) so component
+  indices line up with the metric/CSV column names.
+  """
+  return SceneEntityCfg(
+    "robot", joint_names=monitoring.JOINT_NAMES, preserve_order=True
+  )
+
+
+def _monitoring_metrics() -> dict[str, MetricsTermCfg]:
+  """Build the per-step scalar metric terms that the Viser viewer plots live.
+
+  One term per channel so each gets its own toggle/curve in the Metrics tab:
+    * contact force        : foot_force/{x,y,z}, foot_force/mag
+    * joint torque         : torque/{hip,thigh,calf}
+    * joint power          : power/{hip,thigh,calf}, power/total
+    * slider (raw)         : slider/{pos,vel,acc}
+    * carriage (+up)       : carriage/{height,vel,acc}
+    * joint position       : qpos/{hip,thigh,calf}
+    * joint velocity       : qvel/{hip,thigh,calf}
+  """
+  metrics: dict[str, MetricsTermCfg] = {}
+
+  # --- Foot contact force (world frame, net). ---
+  for axis, comp in (("x", 0), ("y", 1), ("z", 2)):
+    metrics[f"foot_force/{axis}"] = MetricsTermCfg(
+      func=monitoring.contact_force_component_metric,
+      params={"sensor_name": FOOT_CONTACT_SENSOR, "component": comp},
+    )
+  metrics["foot_force/mag"] = MetricsTermCfg(
+    func=monitoring.contact_force_magnitude_metric,
+    params={"sensor_name": FOOT_CONTACT_SENSOR},
+  )
+
+  # --- Per-joint torque, power, position, velocity. ---
+  for comp, jname in enumerate(monitoring.JOINT_NAMES):
+    metrics[f"torque/{jname}"] = MetricsTermCfg(
+      func=monitoring.joint_torque_metric,
+      params={"asset_cfg": monitored_joints_cfg(), "component": comp},
+    )
+    metrics[f"power/{jname}"] = MetricsTermCfg(
+      func=monitoring.joint_power_metric,
+      params={"asset_cfg": monitored_joints_cfg(), "component": comp},
+    )
+    metrics[f"qpos/{jname}"] = MetricsTermCfg(
+      func=monitoring.joint_pos_metric,
+      params={"asset_cfg": monitored_joints_cfg(), "component": comp},
+    )
+    metrics[f"qvel/{jname}"] = MetricsTermCfg(
+      func=monitoring.joint_vel_metric,
+      params={"asset_cfg": monitored_joints_cfg(), "component": comp},
+    )
+  metrics["power/total"] = MetricsTermCfg(
+    func=monitoring.total_mechanical_power_metric,
+    params={"asset_cfg": monitored_joints_cfg()},
+  )
+
+  # --- Slider (raw joint-space) ---
+  metrics["slider/pos"] = MetricsTermCfg(
+    func=monitoring.slider_pos_metric, params={"asset_cfg": slider_cfg()}
+  )
+  metrics["slider/vel"] = MetricsTermCfg(
+    func=monitoring.slider_vel_metric, params={"asset_cfg": slider_cfg()}
+  )
+  metrics["slider/acc"] = MetricsTermCfg(
+    func=monitoring.slider_acc_metric, params={"asset_cfg": slider_cfg()}
+  )
+
+  # --- Carriage (sign-corrected: +up = -slider) ---
+  metrics["carriage/height"] = MetricsTermCfg(
+    func=monitoring.carriage_height_metric, params={"asset_cfg": slider_cfg()}
+  )
+  metrics["carriage/vel"] = MetricsTermCfg(
+    func=monitoring.carriage_vel_metric, params={"asset_cfg": slider_cfg()}
+  )
+  metrics["carriage/acc"] = MetricsTermCfg(
+    func=monitoring.carriage_acc_metric, params={"asset_cfg": slider_cfg()}
+  )
+
+  return metrics
+
+
+def _monitoring_recorder(run_tag: str = "run") -> dict[str, RecorderTermCfg]:
+  """Build the CSV recorder term (one row per control step, env 0)."""
+  return {
+    "csv": RecorderTermCfg(
+      func=monitoring.DiogenesCsvRecorder,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "env_idx": 0,
+        "run_tag": run_tag,
+        # "path": "logs/diogenes_monitor/my_run.csv",  # optional explicit path
+      },
+    )
+  }
+
+
+# ---------------------------------------------------------------------------
+# Terminal-toggle support via environment variables.
+#
+# ``register_mjlab_task`` (in __init__.py) builds BOTH the train and play configs
+# eagerly at import time, and the play/train CLIs offer no custom flags for our
+# monitoring. The cleanest knob that works for both, with NO edits to mjlab, is an
+# env var read here at config-build time. Set it on the command line BEFORE the
+# task is imported (which is what happens naturally when you launch the CLI):
+#
+#   DIOGENES_RECORD_CSV=1 uv run play  Diogenes-Flat --wandb-run-path ...
+#   DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
+#   DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...   # force OFF in play
+#   DIOGENES_CSV_TAG=ablationA DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
+#
+# Recognized vars (all optional):
+#   DIOGENES_RECORD_CSV : 1/true/yes/on -> on, 0/false/no/off -> off
+#   DIOGENES_MONITOR    : same truthy parsing, toggles the live metric plots
+#   DIOGENES_CSV_TAG    : string folded into the CSV filename (overrides default)
+#
+# A direct keyword argument to ``diogenes_env_cfg`` always WINS over the env var;
+# the env var only fills in a flag left at its ``None`` default.
+# ---------------------------------------------------------------------------
+
+_TRUTHY = {"1", "true", "yes", "on", "y", "t"}
+_FALSY = {"0", "false", "no", "off", "n", "f"}
+
+
+def _env_bool(name: str) -> bool | None:
+  """Parse a boolean env var. Returns None if unset/blank, else True/False.
+
+  Unrecognized non-empty values raise, so a typo (``=ture``) fails loudly rather
+  than silently disabling logging.
+  """
+  raw = os.environ.get(name)
+  if raw is None:
+    return None
+  val = raw.strip().lower()
+  if val == "":
+    return None
+  if val in _TRUTHY:
+    return True
+  if val in _FALSY:
+    return False
+  raise ValueError(
+    f"Environment variable {name}={raw!r} is not a recognized boolean. "
+    f"Use one of {sorted(_TRUTHY)} or {sorted(_FALSY)}."
+  )
+
+
+def diogenes_env_cfg(
+  play: bool = False,
+  monitor: bool | None = None,
+  record_csv: bool | None = None,
+  csv_run_tag: str = "run",
+) -> ManagerBasedRlEnvCfg:
   """Create the Diogenes periodic-hopping environment configuration.
 
   Args:
     play: When True, apply evaluation-friendly overrides (effectively infinite
       episode, no observation corruption).
+    monitor: Register the live monitoring metric terms (Viser Metrics tab). If
+      None, falls back to the ``DIOGENES_MONITOR`` env var, then defaults to True
+      (cheap; one scalar per channel per step).
+    record_csv: Register the per-step CSV recorder. If None, falls back to the
+      ``DIOGENES_RECORD_CSV`` env var, then defaults to ``play`` (record in play,
+      not during bulk training). Set True to log a training env-0 trace.
+    csv_run_tag: Label folded into the auto-generated CSV filename. The
+      ``DIOGENES_CSV_TAG`` env var overrides the default ("run") but not an
+      explicitly-passed value.
+
+  Toggle from the terminal without editing code (see the env-var notes above)::
+
+      DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
+      DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...   # force off in play
   """
+  # Resolve each flag: explicit arg wins; else env var; else built-in default.
+  if monitor is None:
+    monitor = _env_bool("DIOGENES_MONITOR")
+  if monitor is None:
+    monitor = True
+  if record_csv is None:
+    record_csv = _env_bool("DIOGENES_RECORD_CSV")
+  if record_csv is None:
+    record_csv = play
+  # Only let the env var set the tag when the caller left the default in place.
+  if csv_run_tag == "run":
+    csv_run_tag = os.environ.get("DIOGENES_CSV_TAG", "run") or "run"
+
   # ---------------------------------------------------------------------------
   # Simulation: 2 ms physics step * decimation 10 -> 50 Hz control.
   # ---------------------------------------------------------------------------
@@ -315,6 +534,12 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     ),
   }
 
+  # ---------------------------------------------------------------------------
+  # Monitoring metrics (live Viser plots) and CSV recorder (offline analysis).
+  # ---------------------------------------------------------------------------
+  metrics = _monitoring_metrics() if monitor else {}
+  recorders = _monitoring_recorder(run_tag=csv_run_tag) if record_csv else {}
+
   cfg = ManagerBasedRlEnvCfg(
     decimation=10,
     episode_length_s=20.0,
@@ -324,6 +549,8 @@ def diogenes_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     actions={"joint_pos": joint_pos_action},
     rewards=rewards,
     terminations=terminations,
+    metrics=metrics,
+    recorders=recorders,
   )
 
   # Point the viewer at the robot for a sensible default camera.
