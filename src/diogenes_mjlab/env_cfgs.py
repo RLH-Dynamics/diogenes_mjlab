@@ -6,12 +6,22 @@ move vertically along a rail. This is a hop test stand, not a free-floating
 locomotion robot, so the built-in ``velocity`` task does not apply and the env
 is built from scratch.
 
-The task here is *periodic hopping*: drive the three leg joints so the carriage
-(tracked by the slider) follows a gravity-exact dual-parabolic vertical
-trajectory, while the point-foot stays fixed in world (x, y).
+Two carriage trajectories are supported, selected by the ``trajectory`` argument
+to ``diogenes_env_cfg`` and registered as two separate tasks (see __init__.py):
 
-Trajectory (gravity-exact, derived period)
-------------------------------------------
+  * ``"dual_parabola"`` (task ``Diogenes-Flat``): the original gravity-exact
+    dual-parabolic motion. Highly dynamic; its period is derived from physics.
+  * ``"sine"`` (task ``Diogenes-Flat-Sine``): a smooth sinusoidal up-and-down
+    carriage motion between a minimum and a maximum height. Much gentler and
+    intended as an easier FIRST sim-to-real target. Its period is a free design
+    parameter (``SINE_PERIOD``); a sinusoid has no physics-derived period.
+
+Both share the same point-foot (x, y) hold reward, the same naturalness /
+smoothness / actuation regularizers, the same terminations, and the same phase
+clock machinery (each fed with its own period).
+
+Dual-parabola trajectory (gravity-exact, derived period)
+--------------------------------------------------------
 The carriage reference is two parabolic arcs that meet at ``TRAJ_TRANSITION``:
 
   * FLIGHT arc: a TRUE free-fall parabola at -GRAVITY, rising from
@@ -26,13 +36,27 @@ There is therefore NO free period: the cycle period is DERIVED as
 T_total = T_flight + T_recovery and shared with the phase clock. See
 ``mdp.dual_parabola_timing``.
 
+Sinusoidal trajectory (smooth, free period)
+-------------------------------------------
+The carriage reference is ``mid - amp*cos(2*pi*phi)`` between ``TRAJ_MIN`` and
+``TRAJ_MAX`` (mid/amp are their average/half-difference). phi=0 starts at the
+bottom, rises to the top at phi=0.5, returns to the bottom at phi=1 -- the same
+"start low, push up" feel as the dual-parabola, so the crouched DEFAULT_INIT
+pose is a valid start for either. The period ``SINE_PERIOD`` is chosen by you;
+the peak vertical acceleration is ``amp * (2*pi/SINE_PERIOD)**2``. The default
+below keeps that comfortably under g so the foot stays loaded (non-ballistic) --
+the gentle motion wanted for a first transfer. See ``mdp.slider_sinusoid_tracking``.
+
 Reward design
 -------------
-  * ``slider_dual_parabola``    : dense Gaussian tracking the gravity-exact
-                                   carriage reference (owns amplitude AND timing).
+  * ``slider_dual_parabola``    : (dual_parabola) dense Gaussian tracking the
+                                   gravity-exact carriage reference.
+  * ``slider_sinusoid``         : (sine) dense Gaussian tracking the sinusoidal
+                                   carriage reference.
   * ``foot_xy_position``        : dense Gaussian keeping the point-foot's world
                                    (x, y) fixed, so the leg hops straight up/down.
-  * Naturalness/smoothness + actuation regularizers: unchanged.
+                                   IDENTICAL for both trajectories.
+  * Naturalness/smoothness + actuation regularizers: IDENTICAL for both.
 
 Foot/ground contact is measured by a ``ContactSensor`` (primary ``calf_assy``,
 secondary ``floor``, ``reduce="netforce"`` -> global-frame wrench). Slider sign
@@ -76,10 +100,12 @@ precedence rules and rationale.
 
 Run a trained policy with::
 
-    uv run play Diogenes-Flat
+    uv run play Diogenes-Flat          # dual-parabola
+    uv run play Diogenes-Flat-Sine     # sinusoid
 """
 
 import os
+from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp
@@ -103,32 +129,57 @@ from . import mdp as diogenes_mdp
 from . import monitoring
 from .diogenes.diogenes_constants import get_diogenes_cfg
 
+# Selector for which carriage trajectory the env tracks.
+TrajectoryType = Literal["dual_parabola", "sine"]
+
 # Names of the XML-defined <position> actuators (== the actuated joint names).
 DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
 
 # ---------------------------------------------------------------------------
-# Gravity-exact dual-parabolic slider trajectory geometry. All three heights are
-# z-values RELATIVE TO THE SLIDER ORIGIN (== the carriage start position; height
-# above start = -slider_pos, verified). Require TRAJ_MAX >= TRAJ_TRANSITION >
-# TRAJ_MIN.
-#   * TRAJ_MAX        : apex of the free-fall (flight) arc.
-#   * TRAJ_MIN        : lowest point of the constant-accel (recovery) arc.
-#   * TRAJ_TRANSITION : height where the two arcs meet (also the cycle boundary).
-#   * GRAVITY         : free-fall acceleration for the flight arc (m/s^2).
-# The cycle PERIOD is NOT specified here -- it is derived from these via physics
-# (see TRAJ_T below / mdp.dual_parabola_timing).
+# Carriage trajectory geometry, SHARED by both trajectories. All three heights
+# are z-values RELATIVE TO THE SLIDER ORIGIN (== the carriage start position;
+# height above start = -slider_pos, verified). Require
+# TRAJ_MAX >= TRAJ_TRANSITION > TRAJ_MIN.
+#   * TRAJ_MAX        : top of the motion (dual-parabola flight apex; sine peak).
+#   * TRAJ_MIN        : bottom of the motion (dual-parabola recovery dip; sine
+#                       trough).
+#   * TRAJ_TRANSITION : (dual-parabola only) height where flight and recovery
+#                       arcs meet, also the cycle boundary. UNUSED by the sine.
+#   * GRAVITY         : (dual-parabola only) free-fall accel for the flight arc.
 # ---------------------------------------------------------------------------
-TRAJ_MAX = 0.35
+TRAJ_MAX = 0.15
 TRAJ_MIN = 0.05
-TRAJ_TRANSITION = 0.15
+TRAJ_TRANSITION = 0.12
 GRAVITY = diogenes_mdp.GRAVITY  # 9.81 m/s^2
 
-# Derived cycle period (seconds). Computed once so the phase clock, the
-# trajectory reward, and any other phase-keyed term all share the SAME period.
-# This is the single source of truth for timing.
+# Dual-parabola derived cycle period (seconds). Computed once so the phase clock,
+# the trajectory reward, and any other phase-keyed term all share the SAME
+# period. This is the single source of truth for dual-parabola timing.
 TRAJ_T = diogenes_mdp.dual_parabola_timing(
   TRAJ_MIN, TRAJ_MAX, TRAJ_TRANSITION, GRAVITY
 )[0]
+
+# ---------------------------------------------------------------------------
+# Sinusoid period (seconds) -- the FREE design parameter for the sine task.
+#
+# A sinusoid has no physics-derived period, so you pick it. It trades off
+# directly against the carriage's peak vertical acceleration:
+#
+#     amp        = (TRAJ_MAX - TRAJ_MIN) / 2
+#     peak_accel = amp * (2*pi / SINE_PERIOD)**2     [m/s^2]
+#
+# Keep peak_accel comfortably BELOW g (9.81) and the foot never goes ballistic --
+# it stays loaded against the floor through the whole cycle, the gentle,
+# well-behaved motion wanted for a first sim-to-real transfer. With the default
+# amplitude (0.15 m) the peak accel at each period is roughly:
+#     SINE_PERIOD = 0.8 s -> ~9.3 m/s^2   (near g; getting dynamic -- avoid first)
+#     SINE_PERIOD = 1.0 s -> ~5.9 m/s^2
+#     SINE_PERIOD = 1.2 s -> ~4.1 m/s^2   (default; gentle, non-ballistic)
+#     SINE_PERIOD = 1.5 s -> ~2.6 m/s^2   (even gentler)
+# Lower SINE_PERIOD (faster hop) raises the accel QUADRATICALLY -- tune this
+# first if you later want a livelier motion.
+# ---------------------------------------------------------------------------
+SINE_PERIOD = 1.2
 
 # Name of the foot/ground contact sensor (referenced by several reward terms).
 FOOT_CONTACT_SENSOR = "foot_ground_contact"
@@ -314,8 +365,94 @@ def _env_bool(name: str) -> bool | None:
   )
 
 
+def _slider_trajectory_reward(trajectory: TrajectoryType) -> tuple[RewardTermCfg, float]:
+  """Build the slider-tracking reward term and its phase-clock period.
+
+  Returns ``(reward_term, phase_period)`` so the caller can wire the SAME period
+  into both the reward (implicitly, via the term) and the phase-clock observation.
+  Both trajectories use weight 30.0 and std 0.1 so the slider-tracking signal is
+  identical in strength between the two tasks -- only the reference shape and the
+  period differ.
+
+  * dual_parabola: period derived from physics (``TRAJ_T``); reward owns the full
+    free-fall + recovery reference.
+  * sine: period is the free ``SINE_PERIOD``; reward tracks ``mid-amp*cos``.
+  """
+  if trajectory == "dual_parabola":
+    term = RewardTermCfg(
+      func=diogenes_mdp.slider_dual_parabola_tracking,
+      weight=30.0,
+      params={
+        "traj_min": TRAJ_MIN,
+        "traj_max": TRAJ_MAX,
+        "traj_transition": TRAJ_TRANSITION,
+        "std": 0.1,
+        "gravity": GRAVITY,
+        "asset_cfg": slider_cfg(),
+      },
+    )
+    return term, TRAJ_T
+  elif trajectory == "sine":
+    term = RewardTermCfg(
+      func=diogenes_mdp.slider_sinusoid_tracking,
+      weight=30.0,
+      params={
+        "traj_min": TRAJ_MIN,
+        "traj_max": TRAJ_MAX,
+        "sine_period": SINE_PERIOD,
+        "std": 0.1,
+        "asset_cfg": slider_cfg(),
+      },
+    )
+    return term, SINE_PERIOD
+  else:
+    raise ValueError(
+      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola' or 'sine'."
+    )
+
+
+def _contact_phase_reward(trajectory: TrajectoryType) -> RewardTermCfg:
+  """Build the trajectory-appropriate foot/ground contact-phase penalty.
+
+  Returns a RewardTermCfg whose func returns a per-step 0/1 cost; the NEGATIVE
+  weight here turns it into a penalty. Tune the weight to taste -- it starts
+  active (unlike the 0.0-weight shaping terms) because keeping the foot planted
+  on schedule is core to the motion you want, not optional polish.
+
+  * sine: penalize ANY airborne step (foot should stay planted all cycle). This
+    is the term that targets the "short hops as the carriage drops" issue.
+  * dual_parabola: penalize the WRONG contact state for the current phase --
+    contact during the flight (upper) arc OR air during the stance (lower) arc.
+    The flight/stance boundary is read from the SAME geometry as the slider
+    reward, so the two share one phase clock.
+  """
+  if trajectory == "sine":
+    return RewardTermCfg(
+      func=diogenes_mdp.foot_contact_required,
+      weight=-2.0,
+      params={"sensor_name": FOOT_CONTACT_SENSOR},
+    )
+  elif trajectory == "dual_parabola":
+    return RewardTermCfg(
+      func=diogenes_mdp.foot_contact_phase_dual_parabola,
+      weight=-1.0,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "traj_min": TRAJ_MIN,
+        "traj_max": TRAJ_MAX,
+        "traj_transition": TRAJ_TRANSITION,
+        "gravity": GRAVITY,
+      },
+    )
+  else:
+    raise ValueError(
+      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola' or 'sine'."
+    )
+
+
 def diogenes_env_cfg(
   play: bool = False,
+  trajectory: TrajectoryType = "dual_parabola",
   monitor: bool | None = None,
   record_csv: bool | None = None,
   csv_run_tag: str = "run",
@@ -325,6 +462,11 @@ def diogenes_env_cfg(
   Args:
     play: When True, apply evaluation-friendly overrides (effectively infinite
       episode, no observation corruption).
+    trajectory: Which carriage motion to track. ``"dual_parabola"`` (default)
+      is the original gravity-exact dynamic motion; ``"sine"`` is the smooth,
+      gentle sinusoidal motion intended for a first sim-to-real transfer. Only
+      the slider-tracking reward and the phase-clock period differ between the
+      two; the foot-xy hold, all regularizers and terminations are identical.
     monitor: Register the live monitoring metric terms (Viser Metrics tab). If
       None, falls back to the ``DIOGENES_MONITOR`` env var, then defaults to True
       (cheap; one scalar per channel per step).
@@ -352,6 +494,15 @@ def diogenes_env_cfg(
   # Only let the env var set the tag when the caller left the default in place.
   if csv_run_tag == "run":
     csv_run_tag = os.environ.get("DIOGENES_CSV_TAG", "run") or "run"
+
+  # Resolve the slider-tracking reward and the matching phase-clock period for
+  # the chosen trajectory. The SAME period drives the reward and the phase clock.
+  slider_reward, phase_period = _slider_trajectory_reward(trajectory)
+
+  # Trajectory-appropriate foot/ground contact-phase penalty (per-step 0/1 cost,
+  # negative weight). Sine: penalize any airborne step. Dual-parabola: penalize
+  # the wrong contact state for the phase (contact in flight, air in stance).
+  contact_phase_reward = _contact_phase_reward(trajectory)
 
   # ---------------------------------------------------------------------------
   # Simulation: 2 ms physics step * decimation 10 -> 50 Hz control.
@@ -415,11 +566,11 @@ def diogenes_env_cfg(
       params={"asset_cfg": slider_cfg()},
     ),
     "last_action": ObservationTermCfg(func=mdp.last_action),
-    # Phase clock uses the DERIVED period so it stays in lockstep with the
-    # gravity-exact trajectory reward.
+    # Phase clock uses the trajectory's period (derived for dual-parabola, the
+    # free SINE_PERIOD for sine) so it stays in lockstep with the slider reward.
     "phase_clock": ObservationTermCfg(
       func=diogenes_mdp.phase_clock,
-      params={"hop_period": TRAJ_T},
+      params={"hop_period": phase_period},
     ),
   }
   observations = {
@@ -439,23 +590,10 @@ def diogenes_env_cfg(
   # Rewards.
   # ---------------------------------------------------------------------------
   rewards = {
-    # --- Gravity-exact dual-parabolic slider trajectory tracking (dense). ---
-    # Owns the whole carriage trajectory: free-fall arc up to TRAJ_MAX and back
-    # to TRAJ_TRANSITION at -GRAVITY, then a velocity-continuous constant-accel
-    # arc down to TRAJ_MIN and back. Period is derived (no traj_T argument).
-    "slider_dual_parabola": RewardTermCfg(
-      func=diogenes_mdp.slider_dual_parabola_tracking,
-      weight=30.0,
-      params={
-        "traj_min": TRAJ_MIN,
-        "traj_max": TRAJ_MAX,
-        "traj_transition": TRAJ_TRANSITION,
-        "std": 0.1,
-        "gravity": GRAVITY,
-        "asset_cfg": slider_cfg(),
-      },
-    ),
-    # --- Point-foot world (x, y) hold (dense). ---
+    # --- Slider trajectory tracking (dense). Trajectory-specific term; same
+    #     weight/std for both so only the reference shape + period differ. ---
+    "slider_trajectory": slider_reward,
+    # --- Point-foot world (x, y) hold (dense). IDENTICAL for both trajectories. ---
     "foot_xy_position": RewardTermCfg(
       func=diogenes_mdp.foot_xy_position_tracking,
       weight=10.0,
@@ -466,10 +604,14 @@ def diogenes_env_cfg(
         "foot_offset_b": diogenes_mdp.FOOT_OFFSET_B,
       },
     ),
+    # --- Foot/ground contact-phase penalty (per-step 0/1 cost x negative weight).
+    #     Trajectory-specific: sine penalizes any airborne step; dual-parabola
+    #     penalizes contact-in-flight and air-in-stance. ---
+    "contact_phase": contact_phase_reward,
     # --- Contact-force shaping (naturalness / smoothness). ---
     "lateral_contact_force": RewardTermCfg(
       func=diogenes_mdp.lateral_contact_force_l2,
-      weight=-0.0,
+      weight=-0.002,
       params={"sensor_name": FOOT_CONTACT_SENSOR},
     ),
     "vertical_contact_force": RewardTermCfg(

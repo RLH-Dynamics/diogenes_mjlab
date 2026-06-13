@@ -8,6 +8,18 @@ electrical-power penalty are reused from ``mjlab.tasks.velocity.mdp`` and
 ``mjlab.envs.mdp`` respectively; this file only adds what is genuinely specific
 to the phase-driven hop stand.
 
+Two carriage trajectories are provided, sharing the same phase clock, the same
+foot-xy hold and the same regularizers:
+
+  * ``slider_dual_parabola_tracking`` -- gravity-exact dual-parabolic motion.
+    Highly dynamic (true free-fall flight arc). Its period is DERIVED from
+    physics; there is no free period parameter.
+  * ``slider_sinusoid_tracking`` -- a smooth sinusoid between a minimum and a
+    maximum height. Much gentler (the peak vertical acceleration is A*omega^2,
+    which you keep below g so the foot never goes ballistic). Its period is a
+    FREE parameter you choose, because a sinusoid has no physics-derived period.
+    Intended as an easier first sim-to-real target.
+
 Geometry note (important for signs)
 -----------------------------------
 The leg hangs from an unactuated prismatic ``slider`` joint. In the URDF the
@@ -325,7 +337,11 @@ FOOT_OFFSET_B: tuple[float, float, float] = (-0.176776, 0.176777, -0.014)
 
 # Foot-center world (x, y) at the default pose (hip=0, thigh=-0.6, calf=0.6), m.
 # Recapture if you change the default pose or FOOT_OFFSET_B.
-DEFAULT_FOOT_REF_XY: tuple[float, float] = (0.00250, -0.09979)
+# Updated for the re-imported Onshape assembly: the leg_mount/hip stack shifted
+# ~+7 mm, moving the foot's world y by -7.00 mm at the reference pose (x and the
+# calf-internal FOOT_OFFSET_B are unchanged, since calf_assy geometry did not
+# change). Recomputed via MuJoCo FK on the new scene.xml.
+DEFAULT_FOOT_REF_XY: tuple[float, float] = (0.00250, -0.10679)
 
 # Standard gravity (m/s^2). The flight arc is a TRUE free-fall parabola at this
 # acceleration, so its duration is fixed by physics, not chosen.
@@ -445,6 +461,99 @@ def dual_parabola_reference(
   return torch.where(phi < flight_frac, flight_h, recovery_h)
 
 
+##
+# Contact-phase penalties (keep the foot planted / lift it on schedule).
+##
+# Both read the same ContactSensor ``found`` field as ``foot_slip`` and use the
+# identical in-contact convention: a primary is "in contact" on a step iff any
+# of its slots reports found > 0. Both return a per-step 0/1 cost (give them a
+# NEGATIVE weight in the cfg to turn the cost into a penalty), matching the
+# binary, weight-tunable design requested. Defined here, AFTER
+# ``dual_parabola_timing`` and ``GRAVITY``, because the dual-parabola variant
+# reads both at definition time (default arg) and call time.
+
+
+def foot_contact_required(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+) -> torch.Tensor:
+  """Binary cost (1.0) on every step the foot is NOT in ground contact. (num_envs,).
+
+  For the SINE task, where the carriage should glide smoothly up and down with
+  the point-foot planted the whole cycle (never hopping off). Returns 1.0 when
+  the foot is airborne, 0.0 when it is touching, so a negative cfg weight
+  penalizes any loss of contact uniformly across the cycle. This directly targets
+  the "short hops as the carriage drops" behaviour: any airborne step is taxed.
+
+  The sensor must request the ``found`` field. Logs the airborne fraction.
+  """
+  sensor: ContactSensor = env.scene[sensor_name]
+  found = sensor.data.found
+  assert found is not None, (
+    f"Sensor '{sensor_name}' must request the 'found' field for "
+    "foot_contact_required."
+  )
+  in_contact = (found > 0).any(dim=-1)  # [B] bool
+  airborne = (~in_contact).float()  # [B] 1.0 when foot has left the ground
+
+  env.extras["log"]["Metrics/foot_airborne_frac"] = airborne.mean()
+  return airborne  # [B]
+
+
+def foot_contact_phase_dual_parabola(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+) -> torch.Tensor:
+  """Binary cost (1.0) on every step whose contact state is WRONG for the phase.
+
+  Shape (num_envs,). For the DUAL-PARABOLA task, the foot is supposed to be:
+    * AIRBORNE during the FLIGHT (upper) arc, phi in [0, flight_frac), and
+    * IN CONTACT during the STANCE/recovery (lower) arc, phi in [flight_frac, 1).
+
+  The cost is 1.0 in either wrong state -- contact during flight OR air during
+  stance -- and 0.0 when the contact state matches the phase. A negative cfg
+  weight turns this into a penalty that both forces the foot to leave the ground
+  for the ballistic arc and forbids it floating through the recovery arc.
+
+  The flight fraction and period are taken from ``dual_parabola_timing`` with the
+  SAME geometry/gravity as the slider reward, so the contact schedule and the
+  height reference share one phase clock and never drift apart. The sensor must
+  request the ``found`` field.
+
+  Args:
+    sensor_name: the foot/ground ContactSensor name.
+    traj_min, traj_max, traj_transition: trajectory geometry, z rel origin (m)
+      (same values passed to the slider reward).
+    gravity: free-fall accel for the flight arc (m/s^2), same as the reward.
+  """
+  t_total, flight_frac, _, _, _ = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  sensor: ContactSensor = env.scene[sensor_name]
+  found = sensor.data.found
+  assert found is not None, (
+    f"Sensor '{sensor_name}' must request the 'found' field for "
+    "foot_contact_phase_dual_parabola."
+  )
+  in_contact = (found > 0).any(dim=-1)  # [B] bool
+
+  phi = _phase(env, t_total)  # [B], derived period -- matches the slider reward
+  in_flight = phi < flight_frac  # [B] bool: should be AIRBORNE here
+
+  # Wrong iff (in flight AND touching) OR (in stance AND airborne).
+  wrong = (in_flight & in_contact) | ((~in_flight) & (~in_contact))  # [B]
+  cost = wrong.float()  # [B] 1.0 when contact state mismatches the phase
+
+  env.extras["log"]["Metrics/contact_phase_wrong_frac"] = cost.mean()
+  env.extras["log"]["Metrics/foot_contact_frac"] = in_contact.float().mean()
+  return cost  # [B]
+
+
 def slider_dual_parabola_tracking(
   env: ManagerBasedRlEnv,
   traj_min: float,
@@ -480,6 +589,81 @@ def slider_dual_parabola_tracking(
   h_ref = dual_parabola_reference(
     phi, traj_min, traj_max, traj_transition, gravity
   )  # [B]
+
+  err = height - h_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_height_ref_mean"] = h_ref.mean()
+  env.extras["log"]["Metrics/slider_height_mean"] = height.mean()
+  return reward
+
+
+##
+# Sinusoidal slider trajectory (gentle, first sim-to-real target).
+##
+# Unlike the dual-parabola, a sinusoid has NO physics-derived period -- the
+# period is a free design parameter you supply (``sine_period`` seconds). The
+# carriage oscillates smoothly between traj_min and traj_max:
+#
+#     mid = (traj_max + traj_min) / 2          (vertical centre)
+#     amp = (traj_max - traj_min) / 2          (amplitude)
+#     h_ref(phi) = mid - amp * cos(2*pi*phi)
+#
+# Phase convention: with the leading -cos, phi=0 starts at the BOTTOM
+# (traj_min), rises to the top (traj_max) at phi=0.5, and returns to the bottom
+# at phi=1. That matches the dual-parabola's "start low, push up" feel and means
+# both trajectories begin near the crouched DEFAULT_INIT pose, so neither trips
+# ``joint_at_limit`` on step 0.
+#
+# SIM-TO-REAL LEVER (peak acceleration): the carriage acceleration is
+#     a(phi) = amp * omega^2 * cos(2*pi*phi),  omega = 2*pi / sine_period
+# so the PEAK vertical accel magnitude is amp * omega^2. Keep this comfortably
+# BELOW g (9.81) and the foot never goes ballistic -- it stays loaded against the
+# floor through the whole cycle, which is exactly the gentle, well-behaved motion
+# you want for a first transfer. Shrinking sine_period (faster hop) or growing
+# the amplitude both raise this quadratically/linearly; tune sine_period FIRST.
+
+
+def slider_sinusoid_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  sine_period: float,
+  std: float,
+  asset_cfg: SceneEntityCfg = SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking a smooth sinusoidal carriage height. (num_envs,).
+
+  carriage_height_above_start = -slider_pos (verified; see section notes). The
+  reference is ``mid - amp*cos(2*pi*phi)`` between ``traj_min`` and ``traj_max``.
+
+  The cycle period is the FREE parameter ``sine_period`` (seconds). The SAME
+  value must drive the phase clock observation so the policy's phase input stays
+  in lockstep with this reward; ``env_cfgs`` wires both from the one constant.
+
+  Args:
+    traj_min, traj_max: lowest / highest carriage height, z rel origin (m),
+      with traj_max >= traj_min.
+    sine_period: cycle period in seconds (a free design choice). The peak
+      vertical acceleration is ((traj_max-traj_min)/2) * (2*pi/sine_period)**2;
+      keep it below g for a non-ballistic, gentle motion.
+    std: Gaussian width on the height-tracking error (meters).
+    asset_cfg: entity config selecting the slider joint, joint_names=("slider",).
+  """
+  assert traj_max >= traj_min, "Require traj_max >= traj_min."
+  assert sine_period > 0.0, "Require sine_period > 0."
+
+  mid = 0.5 * (traj_max + traj_min)
+  amp = 0.5 * (traj_max - traj_min)
+
+  asset: Entity = env.scene[asset_cfg.name]
+  slider = asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]  # [B]
+  height = -slider  # [B], meters above start
+
+  phi = _phase(env, sine_period)  # [B], uses the same free period
+  angle = 2.0 * math.pi * phi
+  h_ref = mid - amp * torch.cos(angle)  # [B]; phi=0 -> traj_min, phi=0.5 -> traj_max
 
   err = height - h_ref
   reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
