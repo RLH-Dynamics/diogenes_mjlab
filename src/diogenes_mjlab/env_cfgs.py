@@ -429,13 +429,13 @@ def _scale_range(
 # the master on/off per term; ``DIOGENES_DOMAIN_RAND`` still gates ALL of them at
 # once, and ``dr_scale`` still sets each enabled term's range width.
 # ---------------------------------------------------------------------------
-ENABLE_PD_GAINS = True # Worked
-ENABLE_LINK_INERTIAL = False # Failed
-ENABLE_COM_OFFSET = True # Worked
-ENABLE_JOINT_ARMATURE = False # Failed
-ENABLE_JOINT_FRICTION = True # Worked
-ENABLE_FOOT_FRICTION = True # Worked
-ENABLE_ENCODER_BIAS = True # Worked
+ENABLE_PD_GAINS = True
+ENABLE_LINK_INERTIAL = True
+ENABLE_COM_OFFSET = True
+ENABLE_JOINT_ARMATURE = True
+ENABLE_JOINT_FRICTION = True
+ENABLE_FOOT_FRICTION = True
+ENABLE_ENCODER_BIAS = True
 
 
 def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
@@ -476,15 +476,14 @@ def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
 
   # --- Mass + inertia, physics-consistent. pseudo_inertia scales mass AND
   #     inertia together (unlike randomizing body_mass alone, which leaves
-  #     inertia stale). alpha_range is the uniform-density scale factor;
-  #     +-20% about 1.0 matches the Isaac project's (0.8, 1.2) mass scale. ---
+  #     inertia stale). alpha_range is the uniform-density scale factor;---
   if ENABLE_LINK_INERTIAL:
     events["link_inertial"] = EventTermCfg(
       func=dr.pseudo_inertia,
       mode="startup",
       params={
         "asset_cfg": all_links_cfg(),
-        "alpha_range": _scale_range(0.8, 1.2, s),
+        "alpha_range": _scale_range(-0.11, 0.09, s),
         "distribution": "uniform",
       },
     )
@@ -515,7 +514,7 @@ def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
       mode="startup",
       params={
         "asset_cfg": actuated_joints_cfg(),
-        "ranges": _scale_range(0.008, 0.020, s),
+        "ranges": _scale_range(0.016, 0.024, s),
         "operation": "abs",
         "distribution": "uniform",
       },
