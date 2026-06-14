@@ -42,7 +42,12 @@
       <!-- Link leg_mount_assy -->
       <body name="leg_mount_assy" pos="0 0 0.122" quat="0 -1 -0 -0">
         <!-- Joint from base_link to leg_mount_assy -->
-        <joint axis="0 0 1" name="slider" type="slide" range="-0.628 0.12200000000000001"/>
+        <!-- armature=0: carriage inertia is fully captured by the component <inertial> tags;
+             the OnShapeToRobot default class adds 0.005 here which is physically wrong for a
+             passive prismatic rail. frictionloss is the Coulomb dry-friction force (N) for the
+             dual-rail MGN12H system; this nominal is overwritten per-world by the slider_friction
+             DR event during training. -->
+        <joint axis="0 0 1" name="slider" type="slide" range="-0.628 0.12200000000000001" armature="0" frictionloss="2.0"/>
         <inertial pos="-0 0.00736167 -0.075" mass="1.61284" fullinertia="0.00250444 0.00530697 0.00350533 -0 1.30755e-05 -0"/>
         <!-- Part leg_mount -->
         <geom type="mesh" class="visual" pos="-0 0.0345 -0.075" quat="0 1 0 0" mesh="leg_mount" material="leg_mount_material"/>

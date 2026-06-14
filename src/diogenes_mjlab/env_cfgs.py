@@ -71,7 +71,8 @@ flags (see "Terminal-toggle support" below):
 
   * Domain randomization (``cfg.events``): per-world randomization of PD gains,
     mass+inertia (physics-consistent pseudo-inertia), centre-of-mass offsets,
-    joint armature and friction, foot/ground geom friction, and joint encoder
+    joint armature and friction, slider rail friction (N, not N·m),
+    foot/ground geom friction, and joint encoder
     bias (all ``mode="startup"``), PLUS a random LEGAL joint START POSE applied
     every reset (``mode="reset"``) so the leg learns to recover into the hop
     cycle from any legal orientation. Built by ``_domain_randomization_events``.
@@ -456,6 +457,7 @@ ENABLE_COM_OFFSET = True
 ENABLE_JOINT_ARMATURE = True
 ENABLE_JOINT_FRICTION = True
 ENABLE_FOOT_FRICTION = True
+ENABLE_SLIDER_FRICTION = True
 ENABLE_ENCODER_BIAS = True
 ENABLE_RESET_JOINT_POSE = True
 
@@ -577,6 +579,24 @@ def _domain_randomization_events(
         "operation": "abs",
         "distribution": "uniform",
         "shared_random": True,
+      },
+    )
+
+  # --- Slider (rail) Coulomb dry-friction, abs. Band is in NEWTONS (slide joint),
+  #     NOT N·m like the rotary joint_friction above. Covers the dual MGN12H
+  #     dual-rail system (4 blocks total): well-broken-in/warm rail at low end,
+  #     cold/tight-preload or contaminated rail at high end. The XML nominal
+  #     frictionloss="2.0" N is the clean-plant value used when DR is off
+  #     (play mode); this term overwrites it per-world during training. ---
+  if ENABLE_SLIDER_FRICTION:
+    events["slider_friction"] = EventTermCfg(
+      func=dr.joint_friction,
+      mode="startup",
+      params={
+        "asset_cfg": slider_cfg(),
+        "ranges": _scale_range(1.0, 3.5, s),
+        "operation": "abs",
+        "distribution": "uniform",
       },
     )
 
@@ -896,8 +916,9 @@ def diogenes_env_cfg(
       ``DIOGENES_CSV_TAG`` env var overrides the default ("run") but not an
       explicitly-passed value.
     domain_rand: Register the startup domain-randomization events (PD gains,
-      mass/inertia, COM, armature, friction, foot friction, encoder bias) AND,
-      subject to ``reset_joints``, the random start-pose reset event. If None,
+      mass/inertia, COM, armature, friction, slider rail friction, foot friction,
+      encoder bias) AND, subject to ``reset_joints``, the random start-pose
+      reset event. If None,
       falls back to ``DIOGENES_DOMAIN_RAND``, then defaults to ``True`` for
       training and ``False`` for ``play`` (clean playback). Turn OFF to ablate
       all DR (startup and reset pose) at once.
