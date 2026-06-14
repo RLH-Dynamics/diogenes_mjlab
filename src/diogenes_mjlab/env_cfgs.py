@@ -69,13 +69,17 @@ Sim-to-real preparation (domain randomization, observation noise/delay)
 For an initial sim-to-real transfer the env adds, all behind independent toggle
 flags (see "Terminal-toggle support" below):
 
-  * Domain randomization (``cfg.events``, all ``mode="startup"``): per-world
-    randomization of PD gains, mass+inertia (physics-consistent pseudo-inertia),
-    centre-of-mass offsets, joint armature and friction, foot/ground geom
-    friction, and joint encoder bias. Built by ``_domain_randomization_events``.
-    A single scalar ``dr_scale`` widens every range about its nominal centre so
-    you can sweep DR strength from one knob. NO external pushes/perturbations are
-    applied (the leg is on a fixed vertical stand).
+  * Domain randomization (``cfg.events``): per-world randomization of PD gains,
+    mass+inertia (physics-consistent pseudo-inertia), centre-of-mass offsets,
+    joint armature and friction, foot/ground geom friction, and joint encoder
+    bias (all ``mode="startup"``), PLUS a random LEGAL joint START POSE applied
+    every reset (``mode="reset"``) so the leg learns to recover into the hop
+    cycle from any legal orientation. Built by ``_domain_randomization_events``.
+    A single scalar ``dr_scale`` widens every startup range about its nominal
+    centre so you can sweep DR strength from one knob (it does NOT widen the
+    reset-pose term, which is bounded by the joint ranges, not a tunable band).
+    NO external pushes/perturbations are applied (the leg is on a fixed vertical
+    stand).
   * Observation noise + delay (actor group only; the critic stays clean to keep
     the asymmetric value function exact): additive uniform sensor noise on the
     proprioceptive terms, plus a per-term observation DELAY of up to
@@ -114,12 +118,13 @@ fork). Most useful is enabling the CSV during training, or forcing it off in pla
     DIOGENES_DOMAIN_RAND=0 uv run train Diogenes-Flat           # DR off (ablation)
     DIOGENES_OBS_NOISE=0   uv run train Diogenes-Flat           # noise/delay off
     DIOGENES_DR_SCALE=1.5  uv run train Diogenes-Flat           # widen DR ranges
+    DIOGENES_RESET_JOINTS=0 uv run train Diogenes-Flat          # fixed start pose
 
 Recognized vars: ``DIOGENES_RECORD_CSV``, ``DIOGENES_MONITOR``,
 ``DIOGENES_DOMAIN_RAND``, ``DIOGENES_OBS_NOISE`` (1/true/yes/on or
-0/false/no/off), ``DIOGENES_DR_SCALE`` (float) and ``DIOGENES_CSV_TAG``
-(filename label). An explicit keyword argument to ``diogenes_env_cfg`` always
-wins over the env var.
+0/false/no/off), ``DIOGENES_DR_SCALE`` (float), ``DIOGENES_RESET_JOINTS``
+(toggle the random start pose) and ``DIOGENES_CSV_TAG`` (filename label). An
+explicit keyword argument to ``diogenes_env_cfg`` always wins over the env var.
 
 Run a trained policy with::
 
@@ -164,6 +169,13 @@ DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
 # Name of the foot collision geom (added to diogenes.xml so foot/ground friction
 # randomization can select it by name).
 FOOT_GEOM_NAME = "foot"
+
+# Inset (as a fraction of each joint's range) used by BOTH the joint_at_limit
+# termination AND the random-start-pose reset event. Defining it once here keeps
+# the two in lockstep: the reset event samples a start strictly inside the band
+# the termination treats as safe, so a fresh start can never trip the limit
+# termination on step 0. If you change this, both terms move together.
+JOINT_LIMIT_MARGIN = 0.02
 
 # ---------------------------------------------------------------------------
 # Carriage trajectory geometry, SHARED by both trajectories. All three heights
@@ -390,16 +402,21 @@ def _monitoring_recorder(run_tag: str = "run") -> dict[str, RecorderTermCfg]:
 # ---------------------------------------------------------------------------
 # Domain randomization events (sim-to-real).
 #
-# All terms run at ``mode="startup"`` (sampled once per world when the model is
-# built), which is the right cadence for fixed physical properties: gains, mass,
-# inertia, COM, armature, friction and encoder bias do not change within an
-# episode on the real robot. Every term is per-world (each of the 4096 envs gets
-# its own draw), so the policy trains across a distribution of plants.
+# The startup terms run at ``mode="startup"`` (sampled once per world when the
+# model is built), which is the right cadence for fixed physical properties:
+# gains, mass, inertia, COM, armature, friction and encoder bias do not change
+# within an episode on the real robot. The random START POSE term instead runs
+# at ``mode="reset"`` (re-sampled every episode), because the start pose IS an
+# episode-level quantity -- you want a fresh legal orientation each rollout.
+# Every term is per-world (each of the 4096 envs gets its own draw), so the
+# policy trains across a distribution of plants and start poses.
 #
-# ``dr_scale`` widens each range symmetrically about its nominal centre. At 1.0
-# the ranges below are used verbatim (carried over from the previous Isaac Lab
-# leg project where applicable); raise it (e.g. 1.5) to stress-test robustness,
-# lower it (e.g. 0.5) to soften DR for an early, easier curriculum stage.
+# ``dr_scale`` widens each STARTUP range symmetrically about its nominal centre.
+# At 1.0 the ranges below are used verbatim (carried over from the previous Isaac
+# Lab leg project where applicable); raise it (e.g. 1.5) to stress-test
+# robustness, lower it (e.g. 0.5) to soften DR for an early, easier curriculum
+# stage. It does NOT scale the reset-pose term, whose spread is fixed by the
+# joint ranges (inset by JOINT_LIMIT_MARGIN), not a tunable band.
 #
 # NOTE: no push/perturbation event is included -- the leg is on a fixed vertical
 # stand, so external base shoves are not physically meaningful here.
@@ -422,12 +439,16 @@ def _scale_range(
 # ---------------------------------------------------------------------------
 # Per-term enable switches for domain randomization.
 #
-# Flip any of these to False to drop that single startup DR term while leaving
-# the rest active -- handy for isolating which term destabilizes a policy (e.g.
-# play a clean-trained policy with only ``ENABLE_ENCODER_BIAS = True`` to see if
-# the encoder bias alone is what drives the leg into its joint limits). These are
-# the master on/off per term; ``DIOGENES_DOMAIN_RAND`` still gates ALL of them at
-# once, and ``dr_scale`` still sets each enabled term's range width.
+# Flip any of these to False to drop that single DR term while leaving the rest
+# active -- handy for isolating which term destabilizes a policy (e.g. play a
+# clean-trained policy with only ``ENABLE_ENCODER_BIAS = True`` to see if the
+# encoder bias alone is what drives the leg into its joint limits). These are the
+# master on/off per term; ``DIOGENES_DOMAIN_RAND`` still gates ALL of them at
+# once, and ``dr_scale`` still sets each enabled startup term's range width.
+#
+# ``ENABLE_RESET_JOINT_POSE`` toggles the random LEGAL start pose specifically;
+# it can also be flipped from the terminal via ``DIOGENES_RESET_JOINTS`` (which
+# takes precedence by gating the term at build time -- see diogenes_env_cfg).
 # ---------------------------------------------------------------------------
 ENABLE_PD_GAINS = True
 ENABLE_LINK_INERTIAL = True
@@ -436,10 +457,13 @@ ENABLE_JOINT_ARMATURE = True
 ENABLE_JOINT_FRICTION = True
 ENABLE_FOOT_FRICTION = True
 ENABLE_ENCODER_BIAS = True
+ENABLE_RESET_JOINT_POSE = True
 
 
-def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
-  """Build the startup domain-randomization event terms.
+def _domain_randomization_events(
+  dr_scale: float, reset_joint_pose: bool = True
+) -> dict[str, EventTermCfg]:
+  """Build the domain-randomization event terms (startup + reset).
 
   The dict is assembled conditionally: each term is included only if its
   ``ENABLE_*`` module-level switch above is True. Toggle those flags to enable or
@@ -447,8 +471,14 @@ def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
   term) without commenting out code.
 
   Args:
-    dr_scale: multiplier on every randomization range's half-width (1.0 = the
-      nominal ranges below). Applied via ``_scale_range`` so the centre is held.
+    dr_scale: multiplier on every STARTUP randomization range's half-width
+      (1.0 = the nominal ranges below). Applied via ``_scale_range`` so the
+      centre is held. Does not affect the reset-pose term.
+    reset_joint_pose: include the random LEGAL start-pose reset term. Gated
+      separately (by ``diogenes_env_cfg``, which folds in the
+      ``DIOGENES_RESET_JOINTS`` env var and the play default) so the start pose
+      can be ablated without touching the startup DR. Still also requires the
+      ``ENABLE_RESET_JOINT_POSE`` module switch.
 
   Returns:
     A dict of ``EventTermCfg`` keyed by a short term name, ready to pass as
@@ -562,6 +592,27 @@ def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
       },
     )
 
+  # --- Random LEGAL joint start pose (mode="reset", NOT startup). Re-sampled
+  #     every episode so the leg learns to recover into the hop cycle from any
+  #     legal orientation. Each actuated joint starts uniformly within its range,
+  #     inset by JOINT_LIMIT_MARGIN (the SAME margin the joint_at_limit
+  #     termination uses) plus a small safety epsilon, so a fresh start never
+  #     trips the limit termination on step 0. The slider is NOT randomized
+  #     (only the actuated joints are selected), so the carriage still starts at
+  #     its trajectory-consistent height. dr_scale does NOT widen this term --
+  #     its spread is bounded by the joint ranges, not a tunable band. ---
+  if reset_joint_pose and ENABLE_RESET_JOINT_POSE:
+    events["reset_joint_pose"] = EventTermCfg(
+      func=diogenes_mdp.reset_joints_uniform_legal,
+      mode="reset",
+      params={
+        "asset_cfg": actuated_joints_cfg(),
+        "margin": JOINT_LIMIT_MARGIN,  # lockstep with joint_at_limit
+        "safety_eps": 1e-3,
+        "velocity_range": (0.0, 0.0),  # start at rest
+      },
+    )
+
   return events
 
 
@@ -581,15 +632,17 @@ def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
 #   DIOGENES_DOMAIN_RAND=0  uv run train Diogenes-Flat       # DR off (ablation)
 #   DIOGENES_OBS_NOISE=0    uv run train Diogenes-Flat       # noise/delay off
 #   DIOGENES_DR_SCALE=1.5   uv run train Diogenes-Flat       # widen DR ranges
+#   DIOGENES_RESET_JOINTS=0 uv run train Diogenes-Flat       # fixed start pose
 #   DIOGENES_CSV_TAG=ablationA DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
 #
 # Recognized vars (all optional):
-#   DIOGENES_RECORD_CSV  : 1/true/yes/on -> on, 0/false/no/off -> off
-#   DIOGENES_MONITOR     : same truthy parsing, toggles the live metric plots
-#   DIOGENES_DOMAIN_RAND : same truthy parsing, toggles startup DR events
-#   DIOGENES_OBS_NOISE   : same truthy parsing, toggles actor obs noise + delay
-#   DIOGENES_DR_SCALE    : float, multiplies every DR range half-width
-#   DIOGENES_CSV_TAG     : string folded into the CSV filename (overrides default)
+#   DIOGENES_RECORD_CSV   : 1/true/yes/on -> on, 0/false/no/off -> off
+#   DIOGENES_MONITOR      : same truthy parsing, toggles the live metric plots
+#   DIOGENES_DOMAIN_RAND  : same truthy parsing, toggles startup DR events
+#   DIOGENES_OBS_NOISE    : same truthy parsing, toggles actor obs noise + delay
+#   DIOGENES_RESET_JOINTS : same truthy parsing, toggles the random start pose
+#   DIOGENES_DR_SCALE     : float, multiplies every startup DR range half-width
+#   DIOGENES_CSV_TAG      : string folded into the CSV filename (overrides default)
 #
 # A direct keyword argument to ``diogenes_env_cfg`` always WINS over the env var;
 # the env var only fills in a flag left at its ``None`` default.
@@ -819,6 +872,7 @@ def diogenes_env_cfg(
   domain_rand: bool | None = None,
   obs_noise: bool | None = None,
   dr_scale: float | None = None,
+  reset_joints: bool | None = None,
 ) -> ManagerBasedRlEnvCfg:
   """Create the Diogenes periodic-hopping environment configuration.
 
@@ -842,23 +896,34 @@ def diogenes_env_cfg(
       ``DIOGENES_CSV_TAG`` env var overrides the default ("run") but not an
       explicitly-passed value.
     domain_rand: Register the startup domain-randomization events (PD gains,
-      mass/inertia, COM, armature, friction, foot friction, encoder bias). If
-      None, falls back to ``DIOGENES_DOMAIN_RAND``, then defaults to ``True`` for
-      training and ``False`` for ``play`` (clean playback). Turn OFF to ablate.
+      mass/inertia, COM, armature, friction, foot friction, encoder bias) AND,
+      subject to ``reset_joints``, the random start-pose reset event. If None,
+      falls back to ``DIOGENES_DOMAIN_RAND``, then defaults to ``True`` for
+      training and ``False`` for ``play`` (clean playback). Turn OFF to ablate
+      all DR (startup and reset pose) at once.
     obs_noise: Attach additive sensor noise AND the observation delay to the
       ACTOR proprio terms. If None, falls back to ``DIOGENES_OBS_NOISE``, then
       defaults to ``True`` for training and ``False`` for ``play``. The critic
       group is always clean.
-    dr_scale: Multiplier on every DR range half-width (1.0 = nominal ranges). If
-      None, falls back to ``DIOGENES_DR_SCALE``, then defaults to 1.0.
+    dr_scale: Multiplier on every startup DR range half-width (1.0 = nominal
+      ranges). If None, falls back to ``DIOGENES_DR_SCALE``, then defaults to
+      1.0. Does not affect the reset start-pose term.
+    reset_joints: Register the random LEGAL joint start-pose reset event so the
+      leg begins each episode in an arbitrary legal orientation. If None, falls
+      back to ``DIOGENES_RESET_JOINTS``, then defaults to ``True`` for training
+      and ``False`` for ``play`` (deterministic default-pose start during
+      evaluation). This term also lives under the ``domain_rand`` gate, so it is
+      only added when domain randomization is on AND ``reset_joints`` resolves
+      True AND the ``ENABLE_RESET_JOINT_POSE`` module switch is set.
 
   Toggle from the terminal without editing code (see the env-var notes above)::
 
-      DIOGENES_RECORD_CSV=1   uv run train Diogenes-Flat
-      DIOGENES_RECORD_CSV=0   uv run play  Diogenes-Flat ...   # force off in play
-      DIOGENES_DOMAIN_RAND=0  uv run train Diogenes-Flat       # ablate DR
-      DIOGENES_OBS_NOISE=0    uv run train Diogenes-Flat       # ablate noise/delay
-      DIOGENES_DR_SCALE=1.5   uv run train Diogenes-Flat       # widen DR ranges
+      DIOGENES_RECORD_CSV=1    uv run train Diogenes-Flat
+      DIOGENES_RECORD_CSV=0    uv run play  Diogenes-Flat ...  # force off in play
+      DIOGENES_DOMAIN_RAND=0   uv run train Diogenes-Flat      # ablate ALL DR
+      DIOGENES_OBS_NOISE=0     uv run train Diogenes-Flat      # ablate noise/delay
+      DIOGENES_DR_SCALE=1.5    uv run train Diogenes-Flat      # widen DR ranges
+      DIOGENES_RESET_JOINTS=0  uv run train Diogenes-Flat      # fixed start pose
   """
   # Resolve each flag: explicit arg wins; else env var; else built-in default.
   if monitor is None:
@@ -887,6 +952,12 @@ def diogenes_env_cfg(
     dr_scale = _env_float("DIOGENES_DR_SCALE")
   if dr_scale is None:
     dr_scale = 1.0
+  # Random start pose: default ON for training, OFF for play. Resolved
+  # independently of the other DR flags but still gated by domain_rand below.
+  if reset_joints is None:
+    reset_joints = _env_bool("DIOGENES_RESET_JOINTS")
+  if reset_joints is None:
+    reset_joints = not play
 
   # Resolve the slider-tracking reward and the matching phase-clock period for
   # the chosen trajectory. The SAME period drives the reward and the phase clock.
@@ -964,10 +1035,17 @@ def diogenes_env_cfg(
   }
 
   # ---------------------------------------------------------------------------
-  # Events: startup domain randomization (sim-to-real). Empty when domain_rand
-  # is off, so the env runs on the clean nominal plant.
+  # Events: startup domain randomization + random reset start pose (sim-to-real).
+  # Empty when domain_rand is off, so the env runs on the clean nominal plant and
+  # from the default start pose. The reset-pose term is additionally gated by
+  # ``reset_joints`` so the start pose can be ablated on its own while leaving the
+  # startup DR active (pass reset_joints=False / DIOGENES_RESET_JOINTS=0).
   # ---------------------------------------------------------------------------
-  events = _domain_randomization_events(dr_scale) if domain_rand else {}
+  events = (
+    _domain_randomization_events(dr_scale, reset_joint_pose=reset_joints)
+    if domain_rand
+    else {}
+  )
 
   # ---------------------------------------------------------------------------
   # Rewards.
@@ -1069,7 +1147,7 @@ def diogenes_env_cfg(
       func=diogenes_mdp.joint_at_limit,
       params={
         "asset_cfg": actuated_joints_cfg(),
-        "margin": 0.02,
+        "margin": JOINT_LIMIT_MARGIN,  # lockstep with reset_joints_uniform_legal
       },
     ),
   }
