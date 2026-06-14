@@ -1018,6 +1018,14 @@ def diogenes_env_cfg(
   actor_terms = _proprio_terms(obs_noise=obs_noise)
   actor_terms["phase_clock"].params["hop_period"] = phase_period
 
+  # Asymmetric actor-critic: the slider (carriage) state is PRIVILEGED -- the
+  # critic may see it to stabilize value estimation, but the actor must NOT,
+  # so the deployed policy needs no rail sensor. Drop the two slider terms from
+  # the actor group only. (critic_terms is a separate dict from a fresh
+  # _proprio_terms() call, so these deletes don't touch it.)
+  del actor_terms["slider_pos"]
+  del actor_terms["slider_vel"]
+
   critic_terms = _proprio_terms(obs_noise=False)
   critic_terms["phase_clock"].params["hop_period"] = phase_period
 
