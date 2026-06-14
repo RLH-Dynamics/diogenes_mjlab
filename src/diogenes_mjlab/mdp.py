@@ -439,7 +439,7 @@ def reset_joints_uniform_legal(
 # Foot-center offset in the calf_assy body frame (meters).
 FOOT_OFFSET_B: tuple[float, float, float] = (-0.176776, 0.176777, -0.014)
 
-# Foot-center world (x, y) at the default pose (hip=0, thigh=-0.6, calf=0.6), m.
+# Foot-center world (x, y) at the default pose.
 # Recapture if you change the default pose or FOOT_OFFSET_B.
 # Updated for the re-imported Onshape assembly: the leg_mount/hip stack shifted
 # ~+7 mm, moving the foot's world y by -7.00 mm at the reference pose (x and the
