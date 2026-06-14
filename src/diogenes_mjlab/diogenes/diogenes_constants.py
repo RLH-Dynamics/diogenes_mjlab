@@ -27,7 +27,7 @@ DEFAULT_INIT = EntityCfg.InitialStateCfg(
     joint_pos={
         "slider": 0.0,
         "hip": 0.0,
-        "thigh": -0.0,
+        "thigh": 0.0,
         "calf": 0.0,
     },
     joint_vel={".*": 0.0},

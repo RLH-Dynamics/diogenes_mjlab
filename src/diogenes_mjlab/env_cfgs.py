@@ -64,6 +64,25 @@ convention (verified against MuJoCo): the leg_mount body is rotated 180 deg abou
 X, so the slider axis points along world -Z and the carriage height above start
 equals ``-slider_pos``. See ``mdp.py`` for details.
 
+Sim-to-real preparation (domain randomization, observation noise/delay)
+-----------------------------------------------------------------------
+For an initial sim-to-real transfer the env adds, all behind independent toggle
+flags (see "Terminal-toggle support" below):
+
+  * Domain randomization (``cfg.events``, all ``mode="startup"``): per-world
+    randomization of PD gains, mass+inertia (physics-consistent pseudo-inertia),
+    centre-of-mass offsets, joint armature and friction, foot/ground geom
+    friction, and joint encoder bias. Built by ``_domain_randomization_events``.
+    A single scalar ``dr_scale`` widens every range about its nominal centre so
+    you can sweep DR strength from one knob. NO external pushes/perturbations are
+    applied (the leg is on a fixed vertical stand).
+  * Observation noise + delay (actor group only; the critic stays clean to keep
+    the asymmetric value function exact): additive uniform sensor noise on the
+    proprioceptive terms, plus a per-term observation DELAY of up to
+    ``OBS_DELAY_MAX_LAG`` control steps (a "time delay" in the
+    ManagerBasedRlEnv observation pipeline). At 50 Hz control, lag 3 == up to
+    60 ms of sensorimotor latency, modelling the real read+actuate round-trip.
+
 Monitoring / logging
 --------------------
 Two cooperating instrumentation layers are wired in from ``monitoring.py``:
@@ -92,11 +111,15 @@ fork). Most useful is enabling the CSV during training, or forcing it off in pla
     DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...        # force off in play
     DIOGENES_CSV_TAG=ablationA DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
 
-Recognized vars: ``DIOGENES_RECORD_CSV`` and ``DIOGENES_MONITOR``
-(1/true/yes/on or 0/false/no/off) and ``DIOGENES_CSV_TAG`` (filename label). An
-explicit keyword argument to ``diogenes_env_cfg`` always wins over the env var.
-See the "Terminal-toggle support" block near ``diogenes_env_cfg`` for the full
-precedence rules and rationale.
+    DIOGENES_DOMAIN_RAND=0 uv run train Diogenes-Flat           # DR off (ablation)
+    DIOGENES_OBS_NOISE=0   uv run train Diogenes-Flat           # noise/delay off
+    DIOGENES_DR_SCALE=1.5  uv run train Diogenes-Flat           # widen DR ranges
+
+Recognized vars: ``DIOGENES_RECORD_CSV``, ``DIOGENES_MONITOR``,
+``DIOGENES_DOMAIN_RAND``, ``DIOGENES_OBS_NOISE`` (1/true/yes/on or
+0/false/no/off), ``DIOGENES_DR_SCALE`` (float) and ``DIOGENES_CSV_TAG``
+(filename label). An explicit keyword argument to ``diogenes_env_cfg`` always
+wins over the env var.
 
 Run a trained policy with::
 
@@ -109,7 +132,9 @@ from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp
+from mjlab.envs.mdp import dr
 from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.managers.observation_manager import (
   ObservationGroupCfg,
@@ -124,6 +149,7 @@ from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import SimulationCfg
 from mjlab.sim.sim import MujocoCfg
 from mjlab.tasks.velocity import mdp as velocity_mdp
+from mjlab.utils.noise import UniformNoiseCfg
 
 from . import mdp as diogenes_mdp
 from . import monitoring
@@ -134,6 +160,10 @@ TrajectoryType = Literal["dual_parabola", "sine"]
 
 # Names of the XML-defined <position> actuators (== the actuated joint names).
 DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
+
+# Name of the foot collision geom (added to diogenes.xml so foot/ground friction
+# randomization can select it by name).
+FOOT_GEOM_NAME = "foot"
 
 # ---------------------------------------------------------------------------
 # Carriage trajectory geometry, SHARED by both trajectories. All three heights
@@ -179,10 +209,34 @@ TRAJ_T = diogenes_mdp.dual_parabola_timing(
 # Lower SINE_PERIOD (faster hop) raises the accel QUADRATICALLY -- tune this
 # first if you later want a livelier motion.
 # ---------------------------------------------------------------------------
-SINE_PERIOD = 1.2
+SINE_PERIOD = 2.0
 
 # Name of the foot/ground contact sensor (referenced by several reward terms).
 FOOT_CONTACT_SENSOR = "foot_ground_contact"
+
+# ---------------------------------------------------------------------------
+# Observation noise + delay (sim-to-real). Applied to the ACTOR proprio terms
+# only; the critic group stays clean so the asymmetric value function sees the
+# true state.
+#
+# OBS_DELAY_MAX_LAG is the "time delay" your friend referred to: the
+# ManagerBasedRlEnv observation pipeline can hold each term back by up to N
+# control steps before handing it to the policy, modelling the real
+# sensor-read + actuation-write latency. Lag counts CONTROL steps, so at the
+# 50 Hz control rate (decimation 10 * 2 ms physics) lag 3 == up to 60 ms.
+# A per-env, per-term random lag in [min, max] is sampled so the policy must be
+# robust to a band of latencies rather than one fixed value.
+# ---------------------------------------------------------------------------
+OBS_DELAY_MIN_LAG = 0
+OBS_DELAY_MAX_LAG = 3
+
+# Additive uniform sensor-noise half-widths for each proprio channel (the noise
+# is drawn uniformly in [-h, +h]). Sized like the velocity task's defaults and
+# the previous Isaac Lab leg project: small on positions, larger on velocities.
+OBS_NOISE_JOINT_POS = 0.01  # rad
+OBS_NOISE_JOINT_VEL = 0.5  # rad/s
+OBS_NOISE_SLIDER_POS = 0.005  # m
+OBS_NOISE_SLIDER_VEL = 0.05  # m/s
 
 # Entity-config factories. Each manager term must get its OWN SceneEntityCfg
 # instance, passed via ``params`` so the manager resolves it.
@@ -215,6 +269,23 @@ def power_joints_cfg() -> SceneEntityCfg:
 def calf_body_cfg() -> SceneEntityCfg:
   """Selects the calf_assy body (the foot body) for foot-position tracking."""
   return SceneEntityCfg("robot", body_names=("calf_assy",))
+
+
+def all_links_cfg() -> SceneEntityCfg:
+  """Selects the moving leg links for mass / inertia / COM randomization.
+
+  Excludes ``base_link`` (a ~zero-mass anchor) so we only perturb the real
+  inertial bodies of the leg.
+  """
+  return SceneEntityCfg(
+    "robot",
+    body_names=("leg_mount_assy", "hip_assy", "thigh_assy", "calf_assy"),
+  )
+
+
+def foot_geom_cfg() -> SceneEntityCfg:
+  """Selects the named foot collision geom for friction randomization."""
+  return SceneEntityCfg("robot", geom_names=(FOOT_GEOM_NAME,))
 
 
 def monitored_joints_cfg() -> SceneEntityCfg:
@@ -317,23 +388,209 @@ def _monitoring_recorder(run_tag: str = "run") -> dict[str, RecorderTermCfg]:
 
 
 # ---------------------------------------------------------------------------
+# Domain randomization events (sim-to-real).
+#
+# All terms run at ``mode="startup"`` (sampled once per world when the model is
+# built), which is the right cadence for fixed physical properties: gains, mass,
+# inertia, COM, armature, friction and encoder bias do not change within an
+# episode on the real robot. Every term is per-world (each of the 4096 envs gets
+# its own draw), so the policy trains across a distribution of plants.
+#
+# ``dr_scale`` widens each range symmetrically about its nominal centre. At 1.0
+# the ranges below are used verbatim (carried over from the previous Isaac Lab
+# leg project where applicable); raise it (e.g. 1.5) to stress-test robustness,
+# lower it (e.g. 0.5) to soften DR for an early, easier curriculum stage.
+#
+# NOTE: no push/perturbation event is included -- the leg is on a fixed vertical
+# stand, so external base shoves are not physically meaningful here.
+# ---------------------------------------------------------------------------
+
+
+def _scale_range(
+  lo: float, hi: float, dr_scale: float
+) -> tuple[float, float]:
+  """Widen ``(lo, hi)`` about its midpoint by ``dr_scale``.
+
+  dr_scale == 1.0 returns the range unchanged; 2.0 doubles its width while
+  keeping the same centre. Used so a single knob sweeps overall DR strength.
+  """
+  mid = 0.5 * (lo + hi)
+  half = 0.5 * (hi - lo) * dr_scale
+  return (mid - half, mid + half)
+
+
+# ---------------------------------------------------------------------------
+# Per-term enable switches for domain randomization.
+#
+# Flip any of these to False to drop that single startup DR term while leaving
+# the rest active -- handy for isolating which term destabilizes a policy (e.g.
+# play a clean-trained policy with only ``ENABLE_ENCODER_BIAS = True`` to see if
+# the encoder bias alone is what drives the leg into its joint limits). These are
+# the master on/off per term; ``DIOGENES_DOMAIN_RAND`` still gates ALL of them at
+# once, and ``dr_scale`` still sets each enabled term's range width.
+# ---------------------------------------------------------------------------
+ENABLE_PD_GAINS = True # Worked
+ENABLE_LINK_INERTIAL = False # Failed
+ENABLE_COM_OFFSET = True # Worked
+ENABLE_JOINT_ARMATURE = False # Failed
+ENABLE_JOINT_FRICTION = True # Worked
+ENABLE_FOOT_FRICTION = True # Worked
+ENABLE_ENCODER_BIAS = True # Worked
+
+
+def _domain_randomization_events(dr_scale: float) -> dict[str, EventTermCfg]:
+  """Build the startup domain-randomization event terms.
+
+  The dict is assembled conditionally: each term is included only if its
+  ``ENABLE_*`` module-level switch above is True. Toggle those flags to enable or
+  disable individual terms (e.g. for an ablation or to isolate a destabilizing
+  term) without commenting out code.
+
+  Args:
+    dr_scale: multiplier on every randomization range's half-width (1.0 = the
+      nominal ranges below). Applied via ``_scale_range`` so the centre is held.
+
+  Returns:
+    A dict of ``EventTermCfg`` keyed by a short term name, ready to pass as
+    ``cfg.events``. Only the enabled terms are present.
+  """
+  s = dr_scale
+  events: dict[str, EventTermCfg] = {}
+
+  # --- PD gains (the single most important actuator DR for sim-to-real).
+  #     Scale about the nominal kp=60 / kv=4 by roughly +-12% ---
+  if ENABLE_PD_GAINS:
+    events["pd_gains"] = EventTermCfg(
+      func=dr.pd_gains,
+      mode="startup",
+      params={
+        "asset_cfg": SceneEntityCfg(
+          "robot", actuator_names=DIOGENES_ACTUATOR_NAMES
+        ),
+        "kp_range": _scale_range(0.89, 1.12, s),
+        "kd_range": _scale_range(0.89, 1.12, s),
+        "operation": "scale",
+        "distribution": "uniform",
+      },
+    )
+
+  # --- Mass + inertia, physics-consistent. pseudo_inertia scales mass AND
+  #     inertia together (unlike randomizing body_mass alone, which leaves
+  #     inertia stale). alpha_range is the uniform-density scale factor;
+  #     +-20% about 1.0 matches the Isaac project's (0.8, 1.2) mass scale. ---
+  if ENABLE_LINK_INERTIAL:
+    events["link_inertial"] = EventTermCfg(
+      func=dr.pseudo_inertia,
+      mode="startup",
+      params={
+        "asset_cfg": all_links_cfg(),
+        "alpha_range": _scale_range(0.8, 1.2, s),
+        "distribution": "uniform",
+      },
+    )
+
+  # --- Centre-of-mass offset, +-25 mm per axis (Isaac project's COM range). ---
+  if ENABLE_COM_OFFSET:
+    events["com_offset"] = EventTermCfg(
+      func=dr.body_com_offset,
+      mode="startup",
+      params={
+        "asset_cfg": all_links_cfg(),
+        "ranges": {
+          0: _scale_range(-0.025, 0.025, s),
+          1: _scale_range(-0.025, 0.025, s),
+          2: _scale_range(-0.025, 0.025, s),
+        },
+        "operation": "add",
+        "distribution": "uniform",
+      },
+    )
+
+  # --- Joint armature (reflected rotor inertia), abs. Isaac range (0.008,
+  #     0.020); the XML nominal is 0.005, so this also lifts it to a realistic
+  #     band. ---
+  if ENABLE_JOINT_ARMATURE:
+    events["joint_armature"] = EventTermCfg(
+      func=dr.joint_armature,
+      mode="startup",
+      params={
+        "asset_cfg": actuated_joints_cfg(),
+        "ranges": _scale_range(0.008, 0.020, s),
+        "operation": "abs",
+        "distribution": "uniform",
+      },
+    )
+
+  # --- Joint dry friction (frictionloss), abs. Isaac range (0.15, 1.60) --
+  #     the leg's biggest unmodelled real effect, so worth a wide band. ---
+  if ENABLE_JOINT_FRICTION:
+    events["joint_friction"] = EventTermCfg(
+      func=dr.joint_friction,
+      mode="startup",
+      params={
+        "asset_cfg": actuated_joints_cfg(),
+        "ranges": _scale_range(0.15, 1.60, s),
+        "operation": "abs",
+        "distribution": "uniform",
+      },
+    )
+
+  # --- Foot/ground tangential friction, abs. Matches the velocity task's
+  #     foot-friction default band (0.3, 1.2); critical for a hopper. Selects
+  #     the named "foot" geom added to diogenes.xml. ---
+  if ENABLE_FOOT_FRICTION:
+    events["foot_friction"] = EventTermCfg(
+      func=dr.geom_friction,
+      mode="startup",
+      params={
+        "asset_cfg": foot_geom_cfg(),
+        "ranges": _scale_range(0.3, 1.2, s),
+        "operation": "abs",
+        "distribution": "uniform",
+        "shared_random": True,
+      },
+    )
+
+  # --- Joint encoder bias, +-0.015 rad. Models per-joint calibration offset
+  #     on the real encoders (a constant added to the measured joint angle). ---
+  if ENABLE_ENCODER_BIAS:
+    events["encoder_bias"] = EventTermCfg(
+      func=dr.encoder_bias,
+      mode="startup",
+      params={
+        "asset_cfg": actuated_joints_cfg(),
+        "bias_range": _scale_range(-0.015, 0.015, s),
+      },
+    )
+
+  return events
+
+
+# ---------------------------------------------------------------------------
 # Terminal-toggle support via environment variables.
 #
 # ``register_mjlab_task`` (in __init__.py) builds BOTH the train and play configs
 # eagerly at import time, and the play/train CLIs offer no custom flags for our
-# monitoring. The cleanest knob that works for both, with NO edits to mjlab, is an
-# env var read here at config-build time. Set it on the command line BEFORE the
-# task is imported (which is what happens naturally when you launch the CLI):
+# monitoring / sim-to-real switches. The cleanest knob that works for both, with
+# NO edits to mjlab, is an env var read here at config-build time. Set it on the
+# command line BEFORE the task is imported (which is what happens naturally when
+# you launch the CLI):
 #
-#   DIOGENES_RECORD_CSV=1 uv run play  Diogenes-Flat --wandb-run-path ...
-#   DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
-#   DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...   # force OFF in play
+#   DIOGENES_RECORD_CSV=1   uv run play  Diogenes-Flat --wandb-run-path ...
+#   DIOGENES_RECORD_CSV=1   uv run train Diogenes-Flat
+#   DIOGENES_RECORD_CSV=0   uv run play  Diogenes-Flat ...   # force OFF in play
+#   DIOGENES_DOMAIN_RAND=0  uv run train Diogenes-Flat       # DR off (ablation)
+#   DIOGENES_OBS_NOISE=0    uv run train Diogenes-Flat       # noise/delay off
+#   DIOGENES_DR_SCALE=1.5   uv run train Diogenes-Flat       # widen DR ranges
 #   DIOGENES_CSV_TAG=ablationA DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
 #
 # Recognized vars (all optional):
-#   DIOGENES_RECORD_CSV : 1/true/yes/on -> on, 0/false/no/off -> off
-#   DIOGENES_MONITOR    : same truthy parsing, toggles the live metric plots
-#   DIOGENES_CSV_TAG    : string folded into the CSV filename (overrides default)
+#   DIOGENES_RECORD_CSV  : 1/true/yes/on -> on, 0/false/no/off -> off
+#   DIOGENES_MONITOR     : same truthy parsing, toggles the live metric plots
+#   DIOGENES_DOMAIN_RAND : same truthy parsing, toggles startup DR events
+#   DIOGENES_OBS_NOISE   : same truthy parsing, toggles actor obs noise + delay
+#   DIOGENES_DR_SCALE    : float, multiplies every DR range half-width
+#   DIOGENES_CSV_TAG     : string folded into the CSV filename (overrides default)
 #
 # A direct keyword argument to ``diogenes_env_cfg`` always WINS over the env var;
 # the env var only fills in a flag left at its ``None`` default.
@@ -363,6 +620,25 @@ def _env_bool(name: str) -> bool | None:
     f"Environment variable {name}={raw!r} is not a recognized boolean. "
     f"Use one of {sorted(_TRUTHY)} or {sorted(_FALSY)}."
   )
+
+
+def _env_float(name: str) -> float | None:
+  """Parse a float env var. Returns None if unset/blank, else the value.
+
+  Unparseable non-empty values raise so a typo fails loudly.
+  """
+  raw = os.environ.get(name)
+  if raw is None:
+    return None
+  val = raw.strip()
+  if val == "":
+    return None
+  try:
+    return float(val)
+  except ValueError as exc:
+    raise ValueError(
+      f"Environment variable {name}={raw!r} is not a valid float."
+    ) from exc
 
 
 def _slider_trajectory_reward(trajectory: TrajectoryType) -> tuple[RewardTermCfg, float]:
@@ -450,18 +726,108 @@ def _contact_phase_reward(trajectory: TrajectoryType) -> RewardTermCfg:
     )
 
 
+def _proprio_terms(obs_noise: bool) -> dict[str, ObservationTermCfg]:
+  """Build the proprioceptive observation terms shared by actor and critic.
+
+  Args:
+    obs_noise: when True, attach additive uniform sensor noise AND a per-term
+      observation delay (up to ``OBS_DELAY_MAX_LAG`` control steps) to each
+      term. Intended for the ACTOR group only; pass False for the critic so the
+      value function sees the clean state (asymmetric actor-critic).
+
+  The two groups must NOT share term instances (the delay buffer is per-term),
+  so this returns a fresh dict on every call.
+  """
+  # Noise configs (None when obs_noise is False so the clean critic copy reuses
+  # this same builder).
+  jp_noise = UniformNoiseCfg(
+    n_min=-OBS_NOISE_JOINT_POS, n_max=OBS_NOISE_JOINT_POS
+  ) if obs_noise else None
+  jv_noise = UniformNoiseCfg(
+    n_min=-OBS_NOISE_JOINT_VEL, n_max=OBS_NOISE_JOINT_VEL
+  ) if obs_noise else None
+  sp_noise = UniformNoiseCfg(
+    n_min=-OBS_NOISE_SLIDER_POS, n_max=OBS_NOISE_SLIDER_POS
+  ) if obs_noise else None
+  sv_noise = UniformNoiseCfg(
+    n_min=-OBS_NOISE_SLIDER_VEL, n_max=OBS_NOISE_SLIDER_VEL
+  ) if obs_noise else None
+
+  # Delay lags (0 when obs_noise is False -> the pipeline skips the delay buffer
+  # entirely for that term).
+  dmin = OBS_DELAY_MIN_LAG if obs_noise else 0
+  dmax = OBS_DELAY_MAX_LAG if obs_noise else 0
+
+  return {
+    "joint_pos": ObservationTermCfg(
+      func=mdp.joint_pos_rel,
+      params={"asset_cfg": actuated_joints_cfg()},
+      noise=jp_noise,
+      delay_min_lag=dmin,
+      delay_max_lag=dmax,
+    ),
+    "joint_vel": ObservationTermCfg(
+      func=mdp.joint_vel_rel,
+      params={"asset_cfg": actuated_joints_cfg()},
+      noise=jv_noise,
+      delay_min_lag=dmin,
+      delay_max_lag=dmax,
+    ),
+    "slider_pos": ObservationTermCfg(
+      func=diogenes_mdp.slider_pos,
+      params={"asset_cfg": slider_cfg()},
+      noise=sp_noise,
+      delay_min_lag=dmin,
+      delay_max_lag=dmax,
+    ),
+    "slider_vel": ObservationTermCfg(
+      func=diogenes_mdp.slider_vel,
+      params={"asset_cfg": slider_cfg()},
+      noise=sv_noise,
+      delay_min_lag=dmin,
+      delay_max_lag=dmax,
+    ),
+    "last_action": ObservationTermCfg(
+      func=mdp.last_action,
+      # No sensor noise on the policy's own previous action, but DO delay it so
+      # the policy's notion of "what I just commanded" carries the same latency
+      # as the proprioception it is paired with.
+      delay_min_lag=dmin,
+      delay_max_lag=dmax,
+    ),
+    # Phase clock uses the trajectory's period (derived for dual-parabola, the
+    # free SINE_PERIOD for sine) so it stays in lockstep with the slider reward.
+    # The clock is an exact, noiseless timing signal (it is an onboard counter on
+    # the real robot too), so it is never corrupted or delayed.
+    "phase_clock": ObservationTermCfg(
+      func=diogenes_mdp.phase_clock,
+      params={"hop_period": _PHASE_PERIOD_PLACEHOLDER},
+    ),
+  }
+
+
+# Sentinel replaced per-call inside diogenes_env_cfg (the phase period depends on
+# the chosen trajectory, resolved at build time).
+_PHASE_PERIOD_PLACEHOLDER = 0.6
+
+
 def diogenes_env_cfg(
   play: bool = False,
   trajectory: TrajectoryType = "dual_parabola",
   monitor: bool | None = None,
   record_csv: bool | None = None,
   csv_run_tag: str = "run",
+  domain_rand: bool | None = None,
+  obs_noise: bool | None = None,
+  dr_scale: float | None = None,
 ) -> ManagerBasedRlEnvCfg:
   """Create the Diogenes periodic-hopping environment configuration.
 
   Args:
     play: When True, apply evaluation-friendly overrides (effectively infinite
-      episode, no observation corruption).
+      episode, no observation corruption, and -- unless explicitly forced on --
+      domain randomization and observation noise/delay default OFF so playback
+      reflects the clean nominal plant).
     trajectory: Which carriage motion to track. ``"dual_parabola"`` (default)
       is the original gravity-exact dynamic motion; ``"sine"`` is the smooth,
       gentle sinusoidal motion intended for a first sim-to-real transfer. Only
@@ -476,11 +842,24 @@ def diogenes_env_cfg(
     csv_run_tag: Label folded into the auto-generated CSV filename. The
       ``DIOGENES_CSV_TAG`` env var overrides the default ("run") but not an
       explicitly-passed value.
+    domain_rand: Register the startup domain-randomization events (PD gains,
+      mass/inertia, COM, armature, friction, foot friction, encoder bias). If
+      None, falls back to ``DIOGENES_DOMAIN_RAND``, then defaults to ``True`` for
+      training and ``False`` for ``play`` (clean playback). Turn OFF to ablate.
+    obs_noise: Attach additive sensor noise AND the observation delay to the
+      ACTOR proprio terms. If None, falls back to ``DIOGENES_OBS_NOISE``, then
+      defaults to ``True`` for training and ``False`` for ``play``. The critic
+      group is always clean.
+    dr_scale: Multiplier on every DR range half-width (1.0 = nominal ranges). If
+      None, falls back to ``DIOGENES_DR_SCALE``, then defaults to 1.0.
 
   Toggle from the terminal without editing code (see the env-var notes above)::
 
-      DIOGENES_RECORD_CSV=1 uv run train Diogenes-Flat
-      DIOGENES_RECORD_CSV=0 uv run play  Diogenes-Flat ...   # force off in play
+      DIOGENES_RECORD_CSV=1   uv run train Diogenes-Flat
+      DIOGENES_RECORD_CSV=0   uv run play  Diogenes-Flat ...   # force off in play
+      DIOGENES_DOMAIN_RAND=0  uv run train Diogenes-Flat       # ablate DR
+      DIOGENES_OBS_NOISE=0    uv run train Diogenes-Flat       # ablate noise/delay
+      DIOGENES_DR_SCALE=1.5   uv run train Diogenes-Flat       # widen DR ranges
   """
   # Resolve each flag: explicit arg wins; else env var; else built-in default.
   if monitor is None:
@@ -494,6 +873,21 @@ def diogenes_env_cfg(
   # Only let the env var set the tag when the caller left the default in place.
   if csv_run_tag == "run":
     csv_run_tag = os.environ.get("DIOGENES_CSV_TAG", "run") or "run"
+
+  # Sim-to-real switches: default ON for training, OFF for play (clean nominal
+  # plant during evaluation) unless explicitly forced.
+  if domain_rand is None:
+    domain_rand = _env_bool("DIOGENES_DOMAIN_RAND")
+  if domain_rand is None:
+    domain_rand = not play
+  if obs_noise is None:
+    obs_noise = _env_bool("DIOGENES_OBS_NOISE")
+  if obs_noise is None:
+    obs_noise = not play
+  if dr_scale is None:
+    dr_scale = _env_float("DIOGENES_DR_SCALE")
+  if dr_scale is None:
+    dr_scale = 1.0
 
   # Resolve the slider-tracking reward and the matching phase-clock period for
   # the chosen trajectory. The SAME period drives the reward and the phase clock.
@@ -546,45 +940,35 @@ def diogenes_env_cfg(
   )
 
   # ---------------------------------------------------------------------------
-  # Observations.
+  # Observations. Actor proprio carries sensor noise + delay when obs_noise is
+  # on; the critic copy is always clean (asymmetric actor-critic). Both groups
+  # get their OWN term instances (the delay buffer is per-term), and the phase
+  # clock's period is patched in for the chosen trajectory.
   # ---------------------------------------------------------------------------
-  proprio_terms = {
-    "joint_pos": ObservationTermCfg(
-      func=mdp.joint_pos_rel,
-      params={"asset_cfg": actuated_joints_cfg()},
-    ),
-    "joint_vel": ObservationTermCfg(
-      func=mdp.joint_vel_rel,
-      params={"asset_cfg": actuated_joints_cfg()},
-    ),
-    "slider_pos": ObservationTermCfg(
-      func=diogenes_mdp.slider_pos,
-      params={"asset_cfg": slider_cfg()},
-    ),
-    "slider_vel": ObservationTermCfg(
-      func=diogenes_mdp.slider_vel,
-      params={"asset_cfg": slider_cfg()},
-    ),
-    "last_action": ObservationTermCfg(func=mdp.last_action),
-    # Phase clock uses the trajectory's period (derived for dual-parabola, the
-    # free SINE_PERIOD for sine) so it stays in lockstep with the slider reward.
-    "phase_clock": ObservationTermCfg(
-      func=diogenes_mdp.phase_clock,
-      params={"hop_period": phase_period},
-    ),
-  }
+  actor_terms = _proprio_terms(obs_noise=obs_noise)
+  actor_terms["phase_clock"].params["hop_period"] = phase_period
+
+  critic_terms = _proprio_terms(obs_noise=False)
+  critic_terms["phase_clock"].params["hop_period"] = phase_period
+
   observations = {
     "actor": ObservationGroupCfg(
-      terms=dict(proprio_terms),
+      terms=actor_terms,
       concatenate_terms=True,
       enable_corruption=not play,
     ),
     "critic": ObservationGroupCfg(
-      terms=dict(proprio_terms),
+      terms=critic_terms,
       concatenate_terms=True,
       enable_corruption=False,
     ),
   }
+
+  # ---------------------------------------------------------------------------
+  # Events: startup domain randomization (sim-to-real). Empty when domain_rand
+  # is off, so the env runs on the clean nominal plant.
+  # ---------------------------------------------------------------------------
+  events = _domain_randomization_events(dr_scale) if domain_rand else {}
 
   # ---------------------------------------------------------------------------
   # Rewards.
@@ -646,9 +1030,24 @@ def diogenes_env_cfg(
       weight=-0.01,
       params={"asset_cfg": actuators_cfg()},
     ),
+    # --- Motion smoothness (sim-to-real): penalize jerky commands and jerky
+    #     joint motion so the deployed policy is gentle on the hardware. ---
     "action_rate": RewardTermCfg(
       func=mdp.action_rate_l2,
       weight=-0.01,
+    ),
+    # Second-order action smoothness (jerk): penalizes the action acceleration,
+    # the standard companion to action_rate for a smooth, deployable policy.
+    "action_acc": RewardTermCfg(
+      func=mdp.action_acc_l2,
+      weight=-0.001,
+    ),
+    # Joint-acceleration penalty (was commented out in the Isaac Lab project);
+    # discourages high-frequency joint chatter that does not transfer.
+    "joint_acc": RewardTermCfg(
+      func=mdp.joint_acc_l2,
+      weight=-2.5e-7,
+      params={"asset_cfg": actuated_joints_cfg()},
     ),
     "joint_limits": RewardTermCfg(
       func=mdp.joint_pos_limits,
@@ -689,6 +1088,7 @@ def diogenes_env_cfg(
     scene=scene_cfg,
     observations=observations,
     actions={"joint_pos": joint_pos_action},
+    events=events,
     rewards=rewards,
     terminations=terminations,
     metrics=metrics,
