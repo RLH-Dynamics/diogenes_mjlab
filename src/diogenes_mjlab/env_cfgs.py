@@ -190,9 +190,9 @@ JOINT_LIMIT_MARGIN = 0.02
 #                       arcs meet, also the cycle boundary. UNUSED by the sine.
 #   * GRAVITY         : (dual-parabola only) free-fall accel for the flight arc.
 # ---------------------------------------------------------------------------
-TRAJ_MAX = 0.15
-TRAJ_MIN = 0.05
-TRAJ_TRANSITION = 0.12
+TRAJ_MAX = 0.45
+TRAJ_MIN = 0.10
+TRAJ_TRANSITION = 0.25
 GRAVITY = diogenes_mdp.GRAVITY  # 9.81 m/s^2
 
 # Dual-parabola derived cycle period (seconds). Computed once so the phase clock,
@@ -729,7 +729,7 @@ def _slider_trajectory_reward(trajectory: TrajectoryType) -> tuple[RewardTermCfg
   if trajectory == "dual_parabola":
     term = RewardTermCfg(
       func=diogenes_mdp.slider_dual_parabola_tracking,
-      weight=30.0,
+      weight=300.0,
       params={
         "traj_min": TRAJ_MIN,
         "traj_max": TRAJ_MAX,
@@ -1086,7 +1086,7 @@ def diogenes_env_cfg(
     # --- Point-foot world (x, y) hold (dense). IDENTICAL for both trajectories. ---
     "foot_xy_position": RewardTermCfg(
       func=diogenes_mdp.foot_xy_position_tracking,
-      weight=10.0,
+      weight=100.0,
       params={
         "asset_cfg": calf_body_cfg(),
         "ref_xy": diogenes_mdp.DEFAULT_FOOT_REF_XY,
@@ -1111,7 +1111,7 @@ def diogenes_env_cfg(
     ),
     "foot_slip": RewardTermCfg(
       func=diogenes_mdp.foot_slip,
-      weight=-0.0,
+      weight=-0.100,
       params={
         "sensor_name": FOOT_CONTACT_SENSOR,
         "asset_cfg": SceneEntityCfg("robot", body_names=("calf_assy",)),
@@ -1128,12 +1128,12 @@ def diogenes_env_cfg(
     # --- Actuation regularizers. ---
     "electrical_power": RewardTermCfg(
       func=mdp.electrical_power_cost,
-      weight=-0.01,
+      weight=-0.10,
       params={"asset_cfg": power_joints_cfg()},
     ),
     "torque": RewardTermCfg(
       func=mdp.joint_torques_l2,
-      weight=-0.01,
+      weight=-0.001,
       params={"asset_cfg": actuators_cfg()},
     ),
     # --- Motion smoothness (sim-to-real): penalize jerky commands and jerky
