@@ -1,6 +1,6 @@
 from mjlab.tasks.registry import register_mjlab_task
 
-from .env_cfgs import diogenes_env_cfg
+from .config import diogenes_env_cfg
 from .rl_cfg import diogenes_ppo_runner_cfg
 
 # Dual-parabolic (highly dynamic) trajectory -- the original task.
