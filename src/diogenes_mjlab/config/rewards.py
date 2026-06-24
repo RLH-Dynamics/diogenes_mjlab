@@ -6,7 +6,6 @@ from typing import Literal
 from mjlab.envs import mdp
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
-from mjlab.tasks.velocity import mdp as velocity_mdp
 
 from ..constants import (
   FOOT_CONTACT_SENSOR,
@@ -51,13 +50,9 @@ class RewardWeights:
 
   # Contact-force shaping
   lateral_contact_force: float = -0.002
-  vertical_contact_force: float = -0.0
 
   # Foot slip
   foot_slip: float = -0.100
-
-  # Soft landing (deprecated / zero-weight kept for config compat)
-  soft_landing: float = -0.0
 
   # Energy / torque / smoothness penalties
   electrical_power: float = -0.10
@@ -185,25 +180,12 @@ def _build_rewards(
       weight=weights.lateral_contact_force,
       params={"sensor_name": FOOT_CONTACT_SENSOR},
     ),
-    "vertical_contact_force": RewardTermCfg(
-      func=diogenes_mdp.vertical_contact_force_l2,
-      weight=weights.vertical_contact_force,
-      params={"sensor_name": FOOT_CONTACT_SENSOR},
-    ),
     "foot_slip": RewardTermCfg(
       func=diogenes_mdp.foot_slip,
       weight=weights.foot_slip,
       params={
         "sensor_name": FOOT_CONTACT_SENSOR,
         "asset_cfg": SceneEntityCfg("robot", body_names=("calf_assy",)),
-      },
-    ),
-    "soft_landing": RewardTermCfg(
-      func=velocity_mdp.soft_landing,
-      weight=weights.soft_landing,
-      params={
-        "sensor_name": FOOT_CONTACT_SENSOR,
-        "command_name": None,
       },
     ),
     "electrical_power": RewardTermCfg(

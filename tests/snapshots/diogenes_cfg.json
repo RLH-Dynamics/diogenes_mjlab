@@ -810,14 +810,6 @@
         },
         "weight": 300.0
       },
-      "soft_landing": {
-        "func": "soft_landing",
-        "params": {
-          "command_name": null,
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
-      },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
@@ -837,13 +829,6 @@
           }
         },
         "weight": -0.001
-      },
-      "vertical_contact_force": {
-        "func": "vertical_contact_force_l2",
-        "params": {
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
       }
     },
     "scene": {
@@ -1498,14 +1483,6 @@
         },
         "weight": 300.0
       },
-      "soft_landing": {
-        "func": "soft_landing",
-        "params": {
-          "command_name": null,
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
-      },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
@@ -1525,13 +1502,6 @@
           }
         },
         "weight": -0.001
-      },
-      "vertical_contact_force": {
-        "func": "vertical_contact_force_l2",
-        "params": {
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
       }
     },
     "scene": {
@@ -2382,14 +2352,6 @@
         },
         "weight": 30.0
       },
-      "soft_landing": {
-        "func": "soft_landing",
-        "params": {
-          "command_name": null,
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
-      },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
@@ -2409,13 +2371,6 @@
           }
         },
         "weight": -0.001
-      },
-      "vertical_contact_force": {
-        "func": "vertical_contact_force_l2",
-        "params": {
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
       }
     },
     "scene": {
@@ -3065,14 +3020,6 @@
         },
         "weight": 30.0
       },
-      "soft_landing": {
-        "func": "soft_landing",
-        "params": {
-          "command_name": null,
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
-      },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
@@ -3092,13 +3039,6 @@
           }
         },
         "weight": -0.001
-      },
-      "vertical_contact_force": {
-        "func": "vertical_contact_force_l2",
-        "params": {
-          "sensor_name": "foot_ground_contact"
-        },
-        "weight": -0.0
       }
     },
     "scene": {
