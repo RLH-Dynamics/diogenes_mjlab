@@ -1,4 +1,4 @@
-# export_onnx.py  — place at your diogenes_mjlab repo root, run in the TRAINING env
+# export_onnx.py  — place in diogenes_mjlab/tools/, run in the TRAINING env
 """Export a trained Diogenes .pt checkpoint to deployable ONNX (actor only,
 obs-normalizer baked in), matching control/policy.py's expected 11-dim layout."""
 
@@ -14,12 +14,14 @@ from mjlab.rl.exporter_utils import get_base_metadata, attach_metadata_to_onnx
 from mjlab.tasks.registry import load_env_cfg, load_rl_cfg, load_runner_cls
 
 import mjlab.tasks            # noqa: F401  (populate registry)
-import diogenes_mjlab          # noqa: F401  <-- ADJUST to your package import name
+import diogenes_mjlab          # noqa: F401  <-- adjust to your package import name
 
 TASK_ID = "Diogenes-Flat-Sine"
 CKPT    = sys.argv[1] if len(sys.argv) > 1 else "logs/rsl_rl/diogenes/<run>/model_<N>.pt"
 
+
 def main():
+    """Export trained checkpoint to ONNX with metadata."""
     ckpt = Path(CKPT)
     if not ckpt.exists():
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
@@ -51,6 +53,7 @@ def main():
     print(f"     default_joint_pos= {meta.get('default_joint_pos')}  (expect 0,0,0)")
     print(f"     action_scale     = {meta.get('action_scale')}       (expect 1.0)")
     env.close()
+
 
 if __name__ == "__main__":
     main()
