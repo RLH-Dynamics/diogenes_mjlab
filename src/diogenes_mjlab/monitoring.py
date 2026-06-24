@@ -61,6 +61,14 @@ from mjlab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
 
+from .accessors import (
+  carriage_acc,
+  carriage_height,
+  carriage_vel,
+  slider_acc_scalar,
+  slider_pos_scalar,
+  slider_vel_scalar,
+)
 from .constants import DIOGENES_ACTUATOR_NAMES
 
 if TYPE_CHECKING:
@@ -173,7 +181,7 @@ def carriage_height_metric(
 ) -> torch.Tensor:
   """Carriage height above start (m). ``= -slider_pos`` (see mdp.py)."""
   asset: Entity = env.scene[asset_cfg.name]
-  return -asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]
+  return carriage_height(asset, asset_cfg)
 
 
 def carriage_vel_metric(
@@ -182,7 +190,7 @@ def carriage_vel_metric(
 ) -> torch.Tensor:
   """Carriage vertical velocity (m/s, +up). ``= -slider_vel``."""
   asset: Entity = env.scene[asset_cfg.name]
-  return -asset.data.joint_vel[:, asset_cfg.joint_ids][:, -1]
+  return carriage_vel(asset, asset_cfg)
 
 
 def carriage_acc_metric(
@@ -191,7 +199,7 @@ def carriage_acc_metric(
 ) -> torch.Tensor:
   """Carriage vertical acceleration (m/s^2, +up). ``= -slider_acc``."""
   asset: Entity = env.scene[asset_cfg.name]
-  return -asset.data.joint_acc[:, asset_cfg.joint_ids][:, -1]
+  return carriage_acc(asset, asset_cfg)
 
 
 def slider_pos_metric(
@@ -199,7 +207,7 @@ def slider_pos_metric(
 ) -> torch.Tensor:
   """Raw slider joint position (m, joint-space sign)."""
   asset: Entity = env.scene[asset_cfg.name]
-  return asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]
+  return slider_pos_scalar(asset, asset_cfg)
 
 
 def slider_vel_metric(
@@ -207,7 +215,7 @@ def slider_vel_metric(
 ) -> torch.Tensor:
   """Raw slider joint velocity (m/s, joint-space sign)."""
   asset: Entity = env.scene[asset_cfg.name]
-  return asset.data.joint_vel[:, asset_cfg.joint_ids][:, -1]
+  return slider_vel_scalar(asset, asset_cfg)
 
 
 def slider_acc_metric(
@@ -215,7 +223,7 @@ def slider_acc_metric(
 ) -> torch.Tensor:
   """Raw slider joint acceleration (m/s^2, joint-space sign)."""
   asset: Entity = env.scene[asset_cfg.name]
-  return asset.data.joint_acc[:, asset_cfg.joint_ids][:, -1]
+  return slider_acc_scalar(asset, asset_cfg)
 
 
 def contact_force_component_metric(

@@ -57,6 +57,7 @@ from mjlab.sensor import ContactSensor
 from mjlab.utils.lab_api.math import sample_uniform
 
 from .constants import GRAVITY  # re-exported so diogenes_mdp.GRAVITY still works
+from .accessors import carriage_height as _carriage_height
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -99,8 +100,7 @@ def _height_above_start(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg) -> to
   ``[0]`` or a slice; the slider is the only joint this cfg selects.
   """
   asset: Entity = env.scene[asset_cfg.name]
-  slider = asset.data.joint_pos[:, asset_cfg.joint_ids]
-  return -slider[:, -1]
+  return _carriage_height(asset, asset_cfg)
 
 
 ##
@@ -683,8 +683,7 @@ def slider_dual_parabola_tracking(
   )
 
   asset: Entity = env.scene[asset_cfg.name]
-  slider = asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]  # [B]
-  height = -slider  # [B], meters above start
+  height = _carriage_height(asset, asset_cfg)  # [B], meters above start
 
   phi = _phase(env, t_total)  # [B], uses the derived period
   h_ref = dual_parabola_reference(
@@ -759,8 +758,7 @@ def slider_sinusoid_tracking(
   amp = 0.5 * (traj_max - traj_min)
 
   asset: Entity = env.scene[asset_cfg.name]
-  slider = asset.data.joint_pos[:, asset_cfg.joint_ids][:, -1]  # [B]
-  height = -slider  # [B], meters above start
+  height = _carriage_height(asset, asset_cfg)  # [B], meters above start
 
   phi = _phase(env, sine_period)  # [B], uses the same free period
   angle = 2.0 * math.pi * phi
