@@ -56,6 +56,8 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
 from mjlab.utils.lab_api.math import sample_uniform
 
+from .constants import GRAVITY  # re-exported so diogenes_mdp.GRAVITY still works
+
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
 
@@ -446,11 +448,6 @@ FOOT_OFFSET_B: tuple[float, float, float] = (-0.176776, 0.176777, -0.014)
 # calf-internal FOOT_OFFSET_B are unchanged, since calf_assy geometry did not
 # change). Recomputed via MuJoCo FK on the new scene.xml.
 DEFAULT_FOOT_REF_XY: tuple[float, float] = (0.00250, -0.10679)
-
-# Standard gravity (m/s^2). The flight arc is a TRUE free-fall parabola at this
-# acceleration, so its duration is fixed by physics, not chosen.
-GRAVITY: float = 9.81
-
 
 def _quat_rotate(quat: torch.Tensor, vec: torch.Tensor) -> torch.Tensor:
   """Rotate vec by quat (w, x, y, z), batched. quat:[B,4], vec:[B,3] -> [B,3].

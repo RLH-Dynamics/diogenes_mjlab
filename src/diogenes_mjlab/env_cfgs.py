@@ -159,41 +159,27 @@ from mjlab.utils.noise import UniformNoiseCfg
 
 from . import mdp as diogenes_mdp
 from . import monitoring
+from .constants import (
+  DIOGENES_ACTUATOR_NAMES,
+  FOOT_CONTACT_SENSOR,
+  FOOT_GEOM_NAME,
+  GRAVITY,
+  JOINT_LIMIT_MARGIN,
+  OBS_DELAY_MAX_LAG,
+  OBS_DELAY_MIN_LAG,
+  OBS_NOISE_JOINT_POS,
+  OBS_NOISE_JOINT_VEL,
+  OBS_NOISE_SLIDER_POS,
+  OBS_NOISE_SLIDER_VEL,
+  SINE_PERIOD,
+  TRAJ_MAX,
+  TRAJ_MIN,
+  TRAJ_TRANSITION,
+)
 from .diogenes.diogenes_constants import get_diogenes_cfg
 
 # Selector for which carriage trajectory the env tracks.
 TrajectoryType = Literal["dual_parabola", "sine"]
-
-# Names of the XML-defined <position> actuators (== the actuated joint names).
-DIOGENES_ACTUATOR_NAMES = ("hip", "thigh", "calf")
-
-# Name of the foot collision geom (added to diogenes.xml so foot/ground friction
-# randomization can select it by name).
-FOOT_GEOM_NAME = "foot"
-
-# Inset (as a fraction of each joint's range) used by BOTH the joint_at_limit
-# termination AND the random-start-pose reset event. Defining it once here keeps
-# the two in lockstep: the reset event samples a start strictly inside the band
-# the termination treats as safe, so a fresh start can never trip the limit
-# termination on step 0. If you change this, both terms move together.
-JOINT_LIMIT_MARGIN = 0.02
-
-# ---------------------------------------------------------------------------
-# Carriage trajectory geometry, SHARED by both trajectories. All three heights
-# are z-values RELATIVE TO THE SLIDER ORIGIN (== the carriage start position;
-# height above start = -slider_pos, verified). Require
-# TRAJ_MAX >= TRAJ_TRANSITION > TRAJ_MIN.
-#   * TRAJ_MAX        : top of the motion (dual-parabola flight apex; sine peak).
-#   * TRAJ_MIN        : bottom of the motion (dual-parabola recovery dip; sine
-#                       trough).
-#   * TRAJ_TRANSITION : (dual-parabola only) height where flight and recovery
-#                       arcs meet, also the cycle boundary. UNUSED by the sine.
-#   * GRAVITY         : (dual-parabola only) free-fall accel for the flight arc.
-# ---------------------------------------------------------------------------
-TRAJ_MAX = 0.45
-TRAJ_MIN = 0.10
-TRAJ_TRANSITION = 0.25
-GRAVITY = diogenes_mdp.GRAVITY  # 9.81 m/s^2
 
 # Dual-parabola derived cycle period (seconds). Computed once so the phase clock,
 # the trajectory reward, and any other phase-keyed term all share the SAME
@@ -201,55 +187,6 @@ GRAVITY = diogenes_mdp.GRAVITY  # 9.81 m/s^2
 TRAJ_T = diogenes_mdp.dual_parabola_timing(
   TRAJ_MIN, TRAJ_MAX, TRAJ_TRANSITION, GRAVITY
 )[0]
-
-# ---------------------------------------------------------------------------
-# Sinusoid period (seconds) -- the FREE design parameter for the sine task.
-#
-# A sinusoid has no physics-derived period, so you pick it. It trades off
-# directly against the carriage's peak vertical acceleration:
-#
-#     amp        = (TRAJ_MAX - TRAJ_MIN) / 2
-#     peak_accel = amp * (2*pi / SINE_PERIOD)**2     [m/s^2]
-#
-# Keep peak_accel comfortably BELOW g (9.81) and the foot never goes ballistic --
-# it stays loaded against the floor through the whole cycle, the gentle,
-# well-behaved motion wanted for a first sim-to-real transfer. With the default
-# amplitude (0.15 m) the peak accel at each period is roughly:
-#     SINE_PERIOD = 0.8 s -> ~9.3 m/s^2   (near g; getting dynamic -- avoid first)
-#     SINE_PERIOD = 1.0 s -> ~5.9 m/s^2
-#     SINE_PERIOD = 1.2 s -> ~4.1 m/s^2   (default; gentle, non-ballistic)
-#     SINE_PERIOD = 1.5 s -> ~2.6 m/s^2   (even gentler)
-# Lower SINE_PERIOD (faster hop) raises the accel QUADRATICALLY -- tune this
-# first if you later want a livelier motion.
-# ---------------------------------------------------------------------------
-SINE_PERIOD = 2.0
-
-# Name of the foot/ground contact sensor (referenced by several reward terms).
-FOOT_CONTACT_SENSOR = "foot_ground_contact"
-
-# ---------------------------------------------------------------------------
-# Observation noise + delay (sim-to-real). Applied to the ACTOR proprio terms
-# only; the critic group stays clean so the asymmetric value function sees the
-# true state.
-#
-# OBS_DELAY_MAX_LAG is the "time delay" your friend referred to: the
-# ManagerBasedRlEnv observation pipeline can hold each term back by up to N
-# control steps before handing it to the policy, modelling the real
-# sensor-read + actuation-write latency. Lag counts CONTROL steps, so at the
-# 50 Hz control rate (decimation 10 * 2 ms physics) lag 3 == up to 60 ms.
-# A per-env, per-term random lag in [min, max] is sampled so the policy must be
-# robust to a band of latencies rather than one fixed value.
-# ---------------------------------------------------------------------------
-OBS_DELAY_MIN_LAG = 0
-OBS_DELAY_MAX_LAG = 3
-
-# Additive uniform sensor-noise half-widths for each proprio channel (the noise
-# is drawn uniformly in [-h, +h]). Sized like the velocity task's defaults and
-# the previous Isaac Lab leg project: small on positions, larger on velocities.
-OBS_NOISE_JOINT_POS = 0.01  # rad
-OBS_NOISE_JOINT_VEL = 0.5  # rad/s
-OBS_NOISE_SLIDER_POS = 0.005  # m
-OBS_NOISE_SLIDER_VEL = 0.05  # m/s
 
 # Entity-config factories. Each manager term must get its OWN SceneEntityCfg
 # instance, passed via ``params`` so the manager resolves it.

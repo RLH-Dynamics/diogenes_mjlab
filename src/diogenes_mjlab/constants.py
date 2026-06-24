@@ -1,0 +1,82 @@
+"""Package-wide physical and task constants for the Diogenes hop stand.
+
+This is a LEAF module: it imports nothing from within the package. All other
+modules may safely import from here without creating circular dependencies.
+
+Sign conventions
+----------------
+The leg hangs from an unactuated prismatic ``slider`` joint. The leg_mount body
+carries a 180 deg rotation about X, so the joint's local +Z points along world
+-Z. A more negative slider value raises the carriage:
+
+    carriage_height_above_start = -slider_pos   (verified via MuJoCo FK)
+
+All heights (TRAJ_*, OBS_NOISE_SLIDER_*) are in meters relative to the slider
+origin.
+"""
+
+# ---------------------------------------------------------------------------
+# Physical constants.
+# ---------------------------------------------------------------------------
+
+# Standard gravity (m/s^2). The dual-parabola flight arc is a TRUE free-fall
+# parabola at this acceleration; its duration is fixed by physics.
+GRAVITY: float = 9.81
+
+# ---------------------------------------------------------------------------
+# Carriage trajectory geometry (shared by both trajectories).
+# All heights are z-values RELATIVE TO THE SLIDER ORIGIN.
+# Require TRAJ_MAX >= TRAJ_TRANSITION > TRAJ_MIN.
+#   TRAJ_MAX        : top of the motion (dual-parabola flight apex; sine peak).
+#   TRAJ_MIN        : bottom of the motion (dual-parabola recovery dip; trough).
+#   TRAJ_TRANSITION : (dual-parabola only) height where flight and recovery meet.
+# ---------------------------------------------------------------------------
+TRAJ_MAX: float = 0.45
+TRAJ_MIN: float = 0.10
+TRAJ_TRANSITION: float = 0.25
+
+# ---------------------------------------------------------------------------
+# Sinusoid period (seconds) -- the FREE design parameter for the sine task.
+# Peak vertical accel = amp * (2*pi / SINE_PERIOD)^2.  Keep below g for a
+# non-ballistic, gentle motion (the gentle, well-behaved first-transfer target).
+# ---------------------------------------------------------------------------
+SINE_PERIOD: float = 2.0
+
+# ---------------------------------------------------------------------------
+# Joint / actuator names.
+# ---------------------------------------------------------------------------
+
+# Names of the three actuated leg joints (== XML <position> actuator names).
+# Also used as monitoring column headers (hip, thigh, calf order).
+DIOGENES_ACTUATOR_NAMES: tuple[str, ...] = ("hip", "thigh", "calf")
+
+# ---------------------------------------------------------------------------
+# Inset fraction used by BOTH the joint_at_limit termination AND the
+# random-start-pose reset event.  Defining it once keeps the two in lockstep so
+# a fresh start can never trip the limit termination on step 0.
+# ---------------------------------------------------------------------------
+JOINT_LIMIT_MARGIN: float = 0.02
+
+# ---------------------------------------------------------------------------
+# Named robot geometries / sensors.
+# ---------------------------------------------------------------------------
+
+# Name of the foot collision geom in diogenes.xml (used for friction DR).
+FOOT_GEOM_NAME: str = "foot"
+
+# Name of the foot/ground contact sensor (referenced by several reward terms).
+FOOT_CONTACT_SENSOR: str = "foot_ground_contact"
+
+# ---------------------------------------------------------------------------
+# Observation noise + delay (sim-to-real).
+# Applied to the ACTOR proprio terms only; critic stays clean.
+# OBS_DELAY_MAX_LAG is the max lag in CONTROL steps (at 50 Hz: lag 3 == 60 ms).
+# ---------------------------------------------------------------------------
+OBS_DELAY_MIN_LAG: int = 0
+OBS_DELAY_MAX_LAG: int = 3
+
+# Additive uniform sensor-noise half-widths for each proprio channel (+-h).
+OBS_NOISE_JOINT_POS: float = 0.01   # rad
+OBS_NOISE_JOINT_VEL: float = 0.5    # rad/s
+OBS_NOISE_SLIDER_POS: float = 0.005  # m
+OBS_NOISE_SLIDER_VEL: float = 0.05   # m/s

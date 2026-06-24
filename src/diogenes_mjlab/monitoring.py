@@ -61,12 +61,16 @@ from mjlab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import ContactSensor
 
+from .constants import DIOGENES_ACTUATOR_NAMES
+
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
 
 # The three actuated leg joints, in a fixed, documented order. Every per-joint
 # metric and CSV column follows this order so runs are directly comparable.
-JOINT_NAMES: tuple[str, ...] = ("hip", "thigh", "calf")
+# Kept as a re-export alias for backward compatibility (env_cfgs.monitored_joints_cfg
+# references monitoring.JOINT_NAMES).
+JOINT_NAMES: tuple[str, ...] = DIOGENES_ACTUATOR_NAMES
 
 
 ##
