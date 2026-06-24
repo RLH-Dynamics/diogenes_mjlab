@@ -28,7 +28,11 @@ from .. import mdp as diogenes_mdp
 
 from .domain_rand import _domain_randomization_events
 from .instrumentation import _monitoring_metrics, _monitoring_recorder
-from .observations import _proprio_terms
+from .observations import (
+  PRIVILEGED_OBS_TERMS,
+  _actor_terms,
+  _critic_terms,
+)
 from .rewards import _build_rewards
 from .entities import actuated_joints_cfg
 
@@ -150,16 +154,30 @@ def diogenes_env_cfg(
   # ---------------------------------------------------------------------------
   # Observations. Actor proprio carries sensor noise + delay when obs_noise is
   # on; the critic copy is always clean (asymmetric actor-critic).
+  # The actor group is built WITHOUT privileged slider state; the critic group
+  # includes it.  See config/observations.py for the canonical term lists.
   # ---------------------------------------------------------------------------
-  actor_terms = _proprio_terms(obs_noise=obs_noise)
+  actor_terms = _actor_terms(obs_noise=obs_noise)
   actor_terms["phase_clock"].params["hop_period"] = phase_period
 
-  # Asymmetric actor-critic: the slider (carriage) state is PRIVILEGED.
-  del actor_terms["slider_pos"]
-  del actor_terms["slider_vel"]
-
-  critic_terms = _proprio_terms(obs_noise=False)
+  critic_terms = _critic_terms()
   critic_terms["phase_clock"].params["hop_period"] = phase_period
+
+  # Guard: enforce the privileged-info split — actor must NOT contain slider
+  # terms; critic MUST contain them.  This assertion is intentionally cheap
+  # (pure dict-key check) so it fires at config-build time with no overhead
+  # during rollout.
+  _actor_keys = set(actor_terms.keys())
+  _critic_keys = set(critic_terms.keys())
+  for _priv in PRIVILEGED_OBS_TERMS:
+    assert _priv not in _actor_keys, (
+      f"Privileged obs term {_priv!r} must NOT appear in the actor group. "
+      "Check config/observations.py _actor_terms()."
+    )
+    assert _priv in _critic_keys, (
+      f"Privileged obs term {_priv!r} must appear in the critic group. "
+      "Check config/observations.py _critic_terms()."
+    )
 
   observations = {
     "actor": ObservationGroupCfg(
