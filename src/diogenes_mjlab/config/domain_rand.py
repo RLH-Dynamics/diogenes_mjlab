@@ -1,5 +1,8 @@
 """Domain-randomization event builders for the Diogenes hop stand (sim-to-real)."""
 
+from dataclasses import dataclass
+from typing import Tuple
+
 from mjlab.envs.mdp import dr
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -12,6 +15,51 @@ from .entities import (
   foot_geom_cfg,
   slider_cfg,
 )
+
+
+@dataclass(frozen=True)
+class DomainRandRanges:
+  """Tuneable range literals for each domain-randomisation event.
+
+  Each pair ``(lo, hi)`` is the *nominal* uniform range (before any
+  ``dr_scale`` widening).  The default values exactly reproduce the
+  hand-tuned baseline ranges used during training.
+  """
+
+  # PD-gain multiplicative scale: (lo, hi) applied to both kp and kd.
+  pd_gains_kp: Tuple[float, float] = (0.89, 1.12)
+  pd_gains_kd: Tuple[float, float] = (0.89, 1.12)
+
+  # Pseudo-inertia alpha (fractional mass/inertia perturbation).
+  inertia_alpha: Tuple[float, float] = (-0.11, 0.09)
+
+  # Centre-of-mass offset per axis (metres).
+  com_offset_x: Tuple[float, float] = (-0.025, 0.025)
+  com_offset_y: Tuple[float, float] = (-0.025, 0.025)
+  com_offset_z: Tuple[float, float] = (-0.025, 0.025)
+
+  # Joint armature (reflected rotor inertia, kg·m²).
+  joint_armature: Tuple[float, float] = (0.016, 0.024)
+
+  # Joint dry friction (frictionloss, N·m).
+  joint_friction: Tuple[float, float] = (0.15, 1.60)
+
+  # Foot/ground tangential friction coefficient.
+  foot_friction: Tuple[float, float] = (0.3, 1.2)
+
+  # Slider (rail) Coulomb dry friction (Newtons).
+  slider_friction: Tuple[float, float] = (1.0, 3.5)
+
+  # Joint encoder bias (rad).
+  encoder_bias: Tuple[float, float] = (-0.015, 0.015)
+
+  # Reset start-pose: joint velocity range (m/s or rad/s).
+  reset_velocity: Tuple[float, float] = (0.0, 0.0)
+
+
+# Default ranges instance used by _domain_randomization_events when no
+# override is passed.
+DEFAULT_DR_RANGES = DomainRandRanges()
 
 # ---------------------------------------------------------------------------
 # Per-term enable switches for domain randomization.
@@ -44,7 +92,9 @@ def _scale_range(
 
 
 def _domain_randomization_events(
-  dr_scale: float, reset_joint_pose: bool = True
+  dr_scale: float,
+  reset_joint_pose: bool = True,
+  ranges: DomainRandRanges = DEFAULT_DR_RANGES,
 ) -> dict[str, EventTermCfg]:
   """Build the domain-randomization event terms (startup + reset).
 
@@ -55,6 +105,8 @@ def _domain_randomization_events(
     dr_scale: multiplier on every STARTUP randomization range's half-width
       (1.0 = the nominal ranges). Does not affect the reset-pose term.
     reset_joint_pose: include the random LEGAL start-pose reset term.
+    ranges: per-term range literals.  Defaults to :data:`DEFAULT_DR_RANGES`
+      which reproduces the baseline training values exactly.
 
   Returns:
     A dict of ``EventTermCfg`` keyed by a short term name, ready to pass as
@@ -72,8 +124,8 @@ def _domain_randomization_events(
         "asset_cfg": SceneEntityCfg(
           "robot", actuator_names=DIOGENES_ACTUATOR_NAMES
         ),
-        "kp_range": _scale_range(0.89, 1.12, s),
-        "kd_range": _scale_range(0.89, 1.12, s),
+        "kp_range": _scale_range(*ranges.pd_gains_kp, s),
+        "kd_range": _scale_range(*ranges.pd_gains_kd, s),
         "operation": "scale",
         "distribution": "uniform",
       },
@@ -86,7 +138,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": all_links_cfg(),
-        "alpha_range": _scale_range(-0.11, 0.09, s),
+        "alpha_range": _scale_range(*ranges.inertia_alpha, s),
         "distribution": "uniform",
       },
     )
@@ -99,9 +151,9 @@ def _domain_randomization_events(
       params={
         "asset_cfg": all_links_cfg(),
         "ranges": {
-          0: _scale_range(-0.025, 0.025, s),
-          1: _scale_range(-0.025, 0.025, s),
-          2: _scale_range(-0.025, 0.025, s),
+          0: _scale_range(*ranges.com_offset_x, s),
+          1: _scale_range(*ranges.com_offset_y, s),
+          2: _scale_range(*ranges.com_offset_z, s),
         },
         "operation": "add",
         "distribution": "uniform",
@@ -115,7 +167,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": actuated_joints_cfg(),
-        "ranges": _scale_range(0.016, 0.024, s),
+        "ranges": _scale_range(*ranges.joint_armature, s),
         "operation": "abs",
         "distribution": "uniform",
       },
@@ -128,7 +180,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": actuated_joints_cfg(),
-        "ranges": _scale_range(0.15, 1.60, s),
+        "ranges": _scale_range(*ranges.joint_friction, s),
         "operation": "abs",
         "distribution": "uniform",
       },
@@ -141,7 +193,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": foot_geom_cfg(),
-        "ranges": _scale_range(0.3, 1.2, s),
+        "ranges": _scale_range(*ranges.foot_friction, s),
         "operation": "abs",
         "distribution": "uniform",
         "shared_random": True,
@@ -155,7 +207,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": slider_cfg(),
-        "ranges": _scale_range(1.0, 3.5, s),
+        "ranges": _scale_range(*ranges.slider_friction, s),
         "operation": "abs",
         "distribution": "uniform",
       },
@@ -168,7 +220,7 @@ def _domain_randomization_events(
       mode="startup",
       params={
         "asset_cfg": actuated_joints_cfg(),
-        "bias_range": _scale_range(-0.015, 0.015, s),
+        "bias_range": _scale_range(*ranges.encoder_bias, s),
       },
     )
 
@@ -181,7 +233,7 @@ def _domain_randomization_events(
         "asset_cfg": actuated_joints_cfg(),
         "margin": JOINT_LIMIT_MARGIN,  # lockstep with joint_at_limit
         "safety_eps": 1e-3,
-        "velocity_range": (0.0, 0.0),  # start at rest
+        "velocity_range": ranges.reset_velocity,  # start at rest
       },
     )
 
