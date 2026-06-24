@@ -136,6 +136,8 @@ Run a trained policy with::
 import os
 from typing import Literal
 
+from .flags import _env_bool, _env_float
+
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp
 from mjlab.envs.mdp import dr
@@ -604,51 +606,6 @@ def _domain_randomization_events(
 # A direct keyword argument to ``diogenes_env_cfg`` always WINS over the env var;
 # the env var only fills in a flag left at its ``None`` default.
 # ---------------------------------------------------------------------------
-
-_TRUTHY = {"1", "true", "yes", "on", "y", "t"}
-_FALSY = {"0", "false", "no", "off", "n", "f"}
-
-
-def _env_bool(name: str) -> bool | None:
-  """Parse a boolean env var. Returns None if unset/blank, else True/False.
-
-  Unrecognized non-empty values raise, so a typo (``=ture``) fails loudly rather
-  than silently disabling logging.
-  """
-  raw = os.environ.get(name)
-  if raw is None:
-    return None
-  val = raw.strip().lower()
-  if val == "":
-    return None
-  if val in _TRUTHY:
-    return True
-  if val in _FALSY:
-    return False
-  raise ValueError(
-    f"Environment variable {name}={raw!r} is not a recognized boolean. "
-    f"Use one of {sorted(_TRUTHY)} or {sorted(_FALSY)}."
-  )
-
-
-def _env_float(name: str) -> float | None:
-  """Parse a float env var. Returns None if unset/blank, else the value.
-
-  Unparseable non-empty values raise so a typo fails loudly.
-  """
-  raw = os.environ.get(name)
-  if raw is None:
-    return None
-  val = raw.strip()
-  if val == "":
-    return None
-  try:
-    return float(val)
-  except ValueError as exc:
-    raise ValueError(
-      f"Environment variable {name}={raw!r} is not a valid float."
-    ) from exc
-
 
 def _slider_trajectory_reward(trajectory: TrajectoryType) -> tuple[RewardTermCfg, float]:
   """Build the slider-tracking reward term and its phase-clock period.
