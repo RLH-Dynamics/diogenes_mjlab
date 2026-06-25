@@ -31,7 +31,7 @@ GRAVITY: float = 9.81
 #   TRAJ_MIN        : bottom of the motion (dual-parabola recovery dip; trough).
 #   TRAJ_TRANSITION : (dual-parabola only) height where flight and recovery meet.
 # ---------------------------------------------------------------------------
-TRAJ_MAX: float = 0.45
+TRAJ_MAX: float = 0.35
 TRAJ_MIN: float = 0.10
 TRAJ_TRANSITION: float = 0.25
 
@@ -68,12 +68,39 @@ FOOT_GEOM_NAME: str = "foot"
 FOOT_CONTACT_SENSOR: str = "foot_ground_contact"
 
 # ---------------------------------------------------------------------------
+# Contact-phase termination.
+# Terminate the episode when the foot/ground contact state is wrong for the
+# current hop phase (e.g. foot still touching during the flight arc, or foot
+# airborne during stance).  The same name is used as BOTH the termination dict
+# key AND the ``term_name`` of the dedicated penalty reward, so the reward fires
+# exactly on the step this termination triggers (terminations are computed just
+# before rewards each step).
+# ---------------------------------------------------------------------------
+CONTACT_PHASE_TERM_NAME: str = "contact_phase_violation"
+
+# Set False to disable the contact-phase termination (e.g. during early
+# curriculum warm-up or ablation runs).  The DIOGENES_CONTACT_PHASE_TERM env
+# var overrides this at runtime without a code change.
+CONTACT_PHASE_TERM_ENABLED: bool = False
+
+# Tolerance band (as a fraction of the hop cycle) around each liftoff/landing
+# transition where a contact-state mismatch is NOT terminated.  This absorbs the
+# finite time the foot needs to leave/meet the ground -- and the grounded reset
+# pose at phase ~ 0, which would otherwise terminate the dual-parabola task on
+# step 0.  Only clear, sustained violations away from a transition terminate.
+CONTACT_PHASE_MARGIN: float = 0.15
+
+# ---------------------------------------------------------------------------
 # Observation noise + delay (sim-to-real).
 # Applied to the ACTOR proprio terms only; critic stays clean.
 # OBS_DELAY_MAX_LAG is the max lag in CONTROL steps (at 50 Hz: lag 3 == 60 ms).
 # ---------------------------------------------------------------------------
 OBS_DELAY_MIN_LAG: int = 0
 OBS_DELAY_MAX_LAG: int = 3
+
+# Rolling history window fed to the ACTOR observation (0 = disabled).
+# At 50 Hz, H=5 gives 100 ms of context (~10% of the hop cycle).
+OBS_HISTORY_LENGTH: int = 10
 
 # Additive uniform sensor-noise half-widths for each proprio channel (+-h).
 OBS_NOISE_JOINT_POS: float = 0.01   # rad

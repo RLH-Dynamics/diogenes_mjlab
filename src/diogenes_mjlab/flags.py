@@ -41,6 +41,25 @@ def _env_bool(name: str) -> bool | None:
   )
 
 
+def _env_int(name: str) -> int | None:
+  """Parse an integer env var. Returns None if unset/blank, else the value.
+
+  Unparseable non-empty values raise so a typo fails loudly.
+  """
+  raw = os.environ.get(name)
+  if raw is None:
+    return None
+  val = raw.strip()
+  if val == "":
+    return None
+  try:
+    return int(val)
+  except ValueError as exc:
+    raise ValueError(
+      f"Environment variable {name}={raw!r} is not a valid integer."
+    ) from exc
+
+
 def _env_float(name: str) -> float | None:
   """Parse a float env var. Returns None if unset/blank, else the value.
 

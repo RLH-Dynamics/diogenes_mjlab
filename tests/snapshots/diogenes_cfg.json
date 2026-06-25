@@ -175,6 +175,13 @@
           "operation": "scale"
         }
       },
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      },
       "reset_joint_pose": {
         "func": "reset_joints_uniform_legal",
         "mode": "reset",
@@ -515,6 +522,8 @@
       "actor": {
         "concatenate_terms": true,
         "enable_corruption": true,
+        "flatten_history_dim": true,
+        "history_length": 5,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -579,7 +588,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.70674629
+              "hop_period": 0.71392156
             }
           }
         }
@@ -587,6 +596,8 @@
       "critic": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -643,7 +654,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.70674629
+              "hop_period": 0.71392156
             }
           },
           "slider_pos": {
@@ -685,23 +696,30 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.0
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
         "params": {
           "gravity": 9.81,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": -1.0
+        "weight": 0.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
       },
       "electrical_power": {
         "func": "electrical_power_cost",
@@ -716,7 +734,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -730,7 +748,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -753,7 +771,7 @@
           ],
           "std": 0.05
         },
-        "weight": 100.0
+        "weight": 1.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -768,7 +786,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -783,14 +801,14 @@
             "name": "robot"
           }
         },
-        "weight": -1.0
+        "weight": -0.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
         "params": {
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.002
+        "weight": -0.0
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -804,16 +822,16 @@
           },
           "gravity": 9.81,
           "std": 0.1,
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": 300.0
+        "weight": 1.0
       },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
-        "weight": -500.0
+        "weight": -100.0
       },
       "torque": {
         "func": "joint_torques_l2",
@@ -828,7 +846,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.001
+        "weight": -0.0
       }
     },
     "scene": {
@@ -839,7 +857,28 @@
       "num_envs": 4096,
       "sensor_names": [
         "foot_ground_contact"
-      ]
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
     },
     "sim": {
       "mujoco": {
@@ -849,6 +888,18 @@
       "njmax": 64
     },
     "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_contact_phase_wrong_dual_parabola",
+        "params": {
+          "gravity": 9.81,
+          "phase_margin": 0.15,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "time_out": false
+      },
       "joint_at_limit": {
         "func": "joint_at_limit",
         "params": {
@@ -889,7 +940,15 @@
     },
     "decimation": 10,
     "episode_length_s": 1000000000,
-    "events": {},
+    "events": {
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      }
+    },
     "metrics": {
       "carriage/acc": {
         "func": "carriage_acc_metric",
@@ -1189,6 +1248,8 @@
       "actor": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": 5,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -1243,7 +1304,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.70674629
+              "hop_period": 0.71392156
             }
           }
         }
@@ -1251,6 +1312,8 @@
       "critic": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -1307,7 +1370,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.70674629
+              "hop_period": 0.71392156
             }
           },
           "slider_pos": {
@@ -1358,23 +1421,30 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.0
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
         "params": {
           "gravity": 9.81,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": -1.0
+        "weight": 0.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
       },
       "electrical_power": {
         "func": "electrical_power_cost",
@@ -1389,7 +1459,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -1403,7 +1473,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -1426,7 +1496,7 @@
           ],
           "std": 0.05
         },
-        "weight": 100.0
+        "weight": 1.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -1441,7 +1511,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -1456,14 +1526,14 @@
             "name": "robot"
           }
         },
-        "weight": -1.0
+        "weight": -0.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
         "params": {
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.002
+        "weight": -0.0
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -1477,16 +1547,16 @@
           },
           "gravity": 9.81,
           "std": 0.1,
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": 300.0
+        "weight": 1.0
       },
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
-        "weight": -500.0
+        "weight": -100.0
       },
       "torque": {
         "func": "joint_torques_l2",
@@ -1501,7 +1571,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.001
+        "weight": -0.0
       }
     },
     "scene": {
@@ -1512,7 +1582,28 @@
       "num_envs": 1,
       "sensor_names": [
         "foot_ground_contact"
-      ]
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
     },
     "sim": {
       "mujoco": {
@@ -1522,6 +1613,18 @@
       "njmax": 64
     },
     "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_contact_phase_wrong_dual_parabola",
+        "params": {
+          "gravity": 9.81,
+          "phase_margin": 0.15,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "time_out": false
+      },
       "joint_at_limit": {
         "func": "joint_at_limit",
         "params": {
@@ -1722,6 +1825,13 @@
           "operation": "scale"
         }
       },
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      },
       "reset_joint_pose": {
         "func": "reset_joints_uniform_legal",
         "mode": "reset",
@@ -2062,6 +2172,8 @@
       "actor": {
         "concatenate_terms": true,
         "enable_corruption": true,
+        "flatten_history_dim": true,
+        "history_length": 5,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -2134,6 +2246,8 @@
       "critic": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -2232,12 +2346,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.0
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -2245,6 +2359,13 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -2.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
       },
       "electrical_power": {
         "func": "electrical_power_cost",
@@ -2259,7 +2380,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -2273,7 +2394,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -2296,7 +2417,7 @@
           ],
           "std": 0.05
         },
-        "weight": 100.0
+        "weight": 1.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -2311,7 +2432,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -2326,14 +2447,14 @@
             "name": "robot"
           }
         },
-        "weight": -1.0
+        "weight": -0.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
         "params": {
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.002
+        "weight": -0.0
       },
       "slider_trajectory": {
         "func": "slider_sinusoid_tracking",
@@ -2347,7 +2468,7 @@
           },
           "sine_period": 2.0,
           "std": 0.1,
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1
         },
         "weight": 30.0
@@ -2355,7 +2476,7 @@
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
-        "weight": -500.0
+        "weight": -100.0
       },
       "torque": {
         "func": "joint_torques_l2",
@@ -2370,7 +2491,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.001
+        "weight": -0.0
       }
     },
     "scene": {
@@ -2381,7 +2502,28 @@
       "num_envs": 4096,
       "sensor_names": [
         "foot_ground_contact"
-      ]
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
     },
     "sim": {
       "mujoco": {
@@ -2391,6 +2533,13 @@
       "njmax": 64
     },
     "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_not_in_contact",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        },
+        "time_out": false
+      },
       "joint_at_limit": {
         "func": "joint_at_limit",
         "params": {
@@ -2431,7 +2580,15 @@
     },
     "decimation": 10,
     "episode_length_s": 1000000000,
-    "events": {},
+    "events": {
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      }
+    },
     "metrics": {
       "carriage/acc": {
         "func": "carriage_acc_metric",
@@ -2731,6 +2888,8 @@
       "actor": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": 5,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -2793,6 +2952,8 @@
       "critic": {
         "concatenate_terms": true,
         "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
         "term_names_in_order": [
           "joint_pos",
           "joint_vel",
@@ -2900,12 +3061,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.0
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -2913,6 +3074,13 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -2.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
       },
       "electrical_power": {
         "func": "electrical_power_cost",
@@ -2927,7 +3095,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -2941,7 +3109,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.1
+        "weight": -0.0
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -2964,7 +3132,7 @@
           ],
           "std": 0.05
         },
-        "weight": 100.0
+        "weight": 1.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -2979,7 +3147,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -2994,14 +3162,14 @@
             "name": "robot"
           }
         },
-        "weight": -1.0
+        "weight": -0.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
         "params": {
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.002
+        "weight": -0.0
       },
       "slider_trajectory": {
         "func": "slider_sinusoid_tracking",
@@ -3015,7 +3183,7 @@
           },
           "sine_period": 2.0,
           "std": 0.1,
-          "traj_max": 0.45,
+          "traj_max": 0.35,
           "traj_min": 0.1
         },
         "weight": 30.0
@@ -3023,7 +3191,7 @@
       "termination_penalty": {
         "func": "is_terminated",
         "params": {},
-        "weight": -500.0
+        "weight": -100.0
       },
       "torque": {
         "func": "joint_torques_l2",
@@ -3038,7 +3206,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.001
+        "weight": -0.0
       }
     },
     "scene": {
@@ -3049,7 +3217,28 @@
       "num_envs": 1,
       "sensor_names": [
         "foot_ground_contact"
-      ]
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
     },
     "sim": {
       "mujoco": {
@@ -3059,6 +3248,13 @@
       "njmax": 64
     },
     "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_not_in_contact",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        },
+        "time_out": false
+      },
       "joint_at_limit": {
         "func": "joint_at_limit",
         "params": {

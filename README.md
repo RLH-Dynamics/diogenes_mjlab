@@ -50,3 +50,26 @@ silently regress.
 `tests/test_config_snapshot.py` builds all four configs (trajectory x play mode) and
 compares them against a golden JSON at `tests/snapshots/diogenes_cfg.json`.
 Re-bless after intentional changes: `DIOGENES_BLESS_SNAPSHOT=1 uv run pytest -q tests/test_config_snapshot.py`.
+
+### Recording videos to WandB
+
+mjlab's `train` CLI can record rollout clips and upload them to WandB automatically — the
+logger already defaults to `wandb`, so no extra setup is needed:
+
+```bash
+uv run train Diogenes-Flat --video
+```
+
+Clips are recorded at fixed step intervals and appear in the WandB run as a `video` panel;
+local copies land under `logs/rsl_rl/diogenes/<run>/videos/train/*.mp4`. Two flags tune it:
+
+- `--video-length` -- frames per clip (default 200).
+- `--video-interval` -- environment steps between clips (default 2000).
+
+**Capturing the converged policy.** Recording is interval-based, not pinned to the final
+step. Total policy steps ≈ `max_iterations × num_steps_per_env` (currently 300 × 24 = 7200,
+set in `rl_cfg.py`). Pick a `--video-interval` so a multiple lands near the end of the run:
+
+```bash
+uv run train Diogenes-Flat --video --video-interval 7000
+```

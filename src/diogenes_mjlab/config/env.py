@@ -9,20 +9,30 @@ from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.scene.scene import SceneCfg
 from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import SimulationCfg
 from mjlab.sim.sim import MujocoCfg
+from mjlab.terrains.terrain_entity import TerrainEntityCfg
 from mjlab.envs import mdp
 
 from ..constants import (
+  CONTACT_PHASE_MARGIN,
+  CONTACT_PHASE_TERM_ENABLED,
+  CONTACT_PHASE_TERM_NAME,
   DIOGENES_ACTUATOR_NAMES,
   FOOT_CONTACT_SENSOR,
+  GRAVITY,
   JOINT_LIMIT_MARGIN,
+  OBS_HISTORY_LENGTH,
+  TRAJ_MAX,
+  TRAJ_MIN,
+  TRAJ_TRANSITION,
 )
-from ..flags import _env_bool, _env_float
+from ..flags import _env_bool, _env_float, _env_int
 from ..diogenes.diogenes_constants import get_diogenes_cfg
 from .. import mdp as diogenes_mdp
 
@@ -50,6 +60,8 @@ def diogenes_env_cfg(
   obs_noise: bool | None = None,
   dr_scale: float | None = None,
   reset_joints: bool | None = None,
+  contact_phase_term: bool | None = None,
+  obs_history: int | None = None,
 ) -> ManagerBasedRlEnvCfg:
   """Create the Diogenes periodic-hopping environment configuration.
 
@@ -77,6 +89,14 @@ def diogenes_env_cfg(
       back to ``DIOGENES_DR_SCALE``, then defaults to 1.0.
     reset_joints: Register the random LEGAL joint start-pose reset event. If
       None, falls back to ``DIOGENES_RESET_JOINTS``, then defaults to ``not play``.
+    contact_phase_term: Register the contact-phase-violation termination (and
+      its dedicated penalty reward).  If None, falls back to the
+      ``DIOGENES_CONTACT_PHASE_TERM`` env var, then defaults to True.  Set to
+      False (or ``DIOGENES_CONTACT_PHASE_TERM=0``) to disable during curriculum
+      warm-up or ablation runs.
+    obs_history: Number of past timesteps included in the actor observation
+      (0 = current step only; None falls back to ``DIOGENES_OBS_HISTORY`` env
+      var, then to :data:`~diogenes_mjlab.constants.OBS_HISTORY_LENGTH`).
   """
   # Resolve each flag: explicit arg wins; else env var; else built-in default.
   if monitor is None:
@@ -106,9 +126,19 @@ def diogenes_env_cfg(
     reset_joints = _env_bool("DIOGENES_RESET_JOINTS")
   if reset_joints is None:
     reset_joints = not play
+  if contact_phase_term is None:
+    contact_phase_term = _env_bool("DIOGENES_CONTACT_PHASE_TERM")
+  if contact_phase_term is None:
+    contact_phase_term = CONTACT_PHASE_TERM_ENABLED
+  if obs_history is None:
+    obs_history = _env_int("DIOGENES_OBS_HISTORY")
+  if obs_history is None:
+    obs_history = OBS_HISTORY_LENGTH
 
   # Build rewards and recover the phase-clock period for the chosen trajectory.
   rewards, phase_period = _build_rewards(trajectory)
+  if not contact_phase_term:
+    del rewards["contact_phase_termination"]
 
   # ---------------------------------------------------------------------------
   # Simulation: 2 ms physics step * decimation 10 -> 50 Hz control.
@@ -127,16 +157,24 @@ def diogenes_env_cfg(
   foot_contact_cfg = ContactSensorCfg(
     name=FOOT_CONTACT_SENSOR,
     primary=ContactMatch(mode="body", pattern="calf_assy", entity="robot"),
-    secondary=ContactMatch(mode="geom", pattern="floor", entity="robot"),
+    # The ground is the scene TerrainEntity plane (geom named "terrain",
+    # attached with an empty prefix), not a robot-bundled floor. entity unset
+    # => the pattern is taken as a literal MuJoCo geom name.
+    secondary=ContactMatch(mode="geom", pattern="terrain"),
     fields=("found", "force", "pos"),
     reduce="netforce",
     num_slots=1,
     track_air_time=True,
   )
 
+  # The TerrainEntity plane is the single shared ground AND the consumer of
+  # env_spacing: the scene copies num_envs/env_spacing into it so it lays the
+  # per-env origins out on a grid.  Without it env_origins stay all-zero and the
+  # (fixed-base, mocap-wrapped) robots all stack at the world origin.
   scene_cfg = SceneCfg(
     num_envs=4096,
     env_spacing=2.0,
+    terrain=TerrainEntityCfg(terrain_type="plane"),
     entities={"robot": get_diogenes_cfg()},
     sensors=(foot_contact_cfg,),
   )
@@ -184,6 +222,7 @@ def diogenes_env_cfg(
       terms=actor_terms,
       concatenate_terms=True,
       enable_corruption=not play,
+      history_length=obs_history or None,
     ),
     "critic": ObservationGroupCfg(
       terms=critic_terms,
@@ -201,9 +240,45 @@ def diogenes_env_cfg(
     else {}
   )
 
+  # Position each env's (fixed-base, mocap-wrapped) robot at its grid origin on
+  # reset.  This writes mocap_pose = default_root_state + env_origins for the
+  # robot; it touches only the root pose, never the joints, so it composes with
+  # the random reset_joint_pose term above.  Without this the env_spacing grid
+  # exists but nothing ever moves the robots onto it.  zero pose_range => no
+  # extra jitter; asset_cfg defaults to the "robot" entity.
+  events["reset_base_pose"] = EventTermCfg(
+    func=mdp.reset_root_state_uniform,
+    mode="reset",
+    params={"pose_range": {}},
+  )
+
   # ---------------------------------------------------------------------------
   # Terminations.
   # ---------------------------------------------------------------------------
+  # Terminate when the foot/ground contact state is wrong for the current phase.
+  # The dual-parabola task has an explicit flight arc (foot must be airborne),
+  # so it uses the phase-keyed check with a tolerance band around each
+  # liftoff/landing transition; the sine squat keeps the foot planted at all
+  # times, so any loss of contact ends the episode.  The dedicated negative
+  # reward is wired in config/rewards.py via CONTACT_PHASE_TERM_NAME.
+  if trajectory == "dual_parabola":
+    contact_phase_termination = TerminationTermCfg(
+      func=diogenes_mdp.foot_contact_phase_wrong_dual_parabola,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "traj_min": TRAJ_MIN,
+        "traj_max": TRAJ_MAX,
+        "traj_transition": TRAJ_TRANSITION,
+        "gravity": GRAVITY,
+        "phase_margin": CONTACT_PHASE_MARGIN,
+      },
+    )
+  else:  # "sine"
+    contact_phase_termination = TerminationTermCfg(
+      func=diogenes_mdp.foot_not_in_contact,
+      params={"sensor_name": FOOT_CONTACT_SENSOR},
+    )
+
   terminations = {
     "time_out": TerminationTermCfg(func=mdp.time_out, time_out=True),
     "joint_at_limit": TerminationTermCfg(
@@ -212,6 +287,11 @@ def diogenes_env_cfg(
         "asset_cfg": actuated_joints_cfg(),
         "margin": JOINT_LIMIT_MARGIN,
       },
+    ),
+    **(
+      {CONTACT_PHASE_TERM_NAME: contact_phase_termination}
+      if contact_phase_term
+      else {}
     ),
   }
 
@@ -235,10 +315,20 @@ def diogenes_env_cfg(
     recorders=recorders,
   )
 
-  # Point the viewer at the robot for a sensible default camera.
+  # Point the viewer at the robot with a TRACKING camera.  The robot is
+  # fixed-base (mocap-wrapped), so the default AUTO/WORLD origin has no moving
+  # root body to follow and falls back to a free camera staring at the world
+  # origin (0,0,0).  Once env_spacing places each env on a grid, env_idx 0 sits
+  # away from the origin, so a world-origin camera would frame empty ground.
+  # ASSET_BODY tracks base_link wherever its env cell is, in both the live
+  # viewer and the offscreen video recorder.
+  cfg.viewer.origin_type = cfg.viewer.OriginType.ASSET_BODY
+  cfg.viewer.entity_name = "robot"
   cfg.viewer.body_name = "base_link"
-  cfg.viewer.distance = 2.0
-  cfg.viewer.elevation = -10.0
+  cfg.viewer.distance = 1.5
+  cfg.viewer.elevation = -20.0
+  cfg.viewer.azimuth = 135.0
+
 
   # ---------------------------------------------------------------------------
   # Play-mode overrides.

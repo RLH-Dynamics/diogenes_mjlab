@@ -8,6 +8,7 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
 from ..constants import (
+  CONTACT_PHASE_TERM_NAME,
   FOOT_CONTACT_SENSOR,
   GRAVITY,
   SINE_PERIOD,
@@ -38,32 +39,36 @@ class RewardWeights:
   """
 
   # Trajectory-tracking
-  slider_trajectory_dual_parabola: float = 300.0
+  slider_trajectory_dual_parabola: float = 1.0
   slider_trajectory_sine: float = 30.0
 
   # Foot position hold
-  foot_xy_position: float = 100.0
+  foot_xy_position: float = 1.0
 
   # Contact-phase penalties (trajectory-dependent)
-  contact_phase_dual_parabola: float = -1.0
+  contact_phase_dual_parabola: float = 0.0
   contact_phase_sine: float = -2.0
 
   # Contact-force shaping
-  lateral_contact_force: float = -0.002
+  lateral_contact_force: float = -0.0
 
   # Foot slip
-  foot_slip: float = -0.100
+  foot_slip: float = -0.0
 
   # Energy / torque / smoothness penalties
-  electrical_power: float = -0.10
-  torque: float = -0.001
-  action_rate: float = -0.01
-  action_acc: float = -0.001
-  joint_acc: float = -2.5e-7
+  electrical_power: float = -0.0
+  torque: float = -0.0
+  action_rate: float = -0.0
+  action_acc: float = -0.0
+  joint_acc: float = -0.0
 
   # Safety
-  joint_limits: float = -1.0
-  termination_penalty: float = -500.0
+  joint_limits: float = -0.0
+  termination_penalty: float = -100.0
+  # Dedicated penalty for the contact-phase termination (stacks on top of the
+  # blanket termination_penalty above so a wrong-contact termination is
+  # penalized more heavily than e.g. a joint-limit termination).
+  contact_phase_termination: float = -200.0
 
 
 # Default weights instance used by _build_rewards when no override is passed.
@@ -219,6 +224,11 @@ def _build_rewards(
     "termination_penalty": RewardTermCfg(
       func=mdp.is_terminated,
       weight=weights.termination_penalty,
+    ),
+    "contact_phase_termination": RewardTermCfg(
+      func=diogenes_mdp.is_specific_termination,
+      weight=weights.contact_phase_termination,
+      params={"term_name": CONTACT_PHASE_TERM_NAME},
     ),
   }
   return rewards, phase_period

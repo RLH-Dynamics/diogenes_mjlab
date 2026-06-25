@@ -140,6 +140,8 @@ def _serialize_obs_group(group: Any) -> dict:
       "delay_max_lag": getattr(term, "delay_max_lag", 0),
     }
   return {
+    "history_length": getattr(group, "history_length", None),
+    "flatten_history_dim": getattr(group, "flatten_history_dim", True),
     "term_names_in_order": list(terms.keys()),
     "concatenate_terms": getattr(group, "concatenate_terms", None),
     "enable_corruption": getattr(group, "enable_corruption", None),
@@ -197,11 +199,42 @@ def _serialize_recorder_terms(recorders: dict) -> dict:
   return out
 
 
+def _serialize_contact_match(match: Any) -> dict | None:
+  """Serialize one ContactMatch (primary/secondary of a contact sensor)."""
+  if match is None:
+    return None
+  return {
+    "mode": getattr(match, "mode", None),
+    "pattern": _serialize_value(getattr(match, "pattern", None)),
+    "entity": getattr(match, "entity", None),
+  }
+
+
+def _serialize_sensor(sensor: Any) -> dict:
+  """Serialize the structurally relevant fields of a scene sensor."""
+  return {
+    "__type__": type(sensor).__name__,
+    "name": getattr(sensor, "name", None),
+    "primary": _serialize_contact_match(getattr(sensor, "primary", None)),
+    "secondary": _serialize_contact_match(getattr(sensor, "secondary", None)),
+  }
+
+
 def _serialize_scene(scene: Any) -> dict:
   out: dict[str, Any] = {
     "num_envs": getattr(scene, "num_envs", None),
     "env_spacing": getattr(scene, "env_spacing", None),
   }
+  # Terrain (consumer of env_spacing; provides the shared ground plane).
+  terrain = getattr(scene, "terrain", None)
+  if terrain is None:
+    out["terrain"] = None
+  else:
+    out["terrain"] = {
+      "__type__": type(terrain).__name__,
+      "terrain_type": getattr(terrain, "terrain_type", None),
+      "env_spacing": getattr(terrain, "env_spacing", None),
+    }
   # Entity names
   entities = getattr(scene, "entities", None)
   if entities:
@@ -213,8 +246,10 @@ def _serialize_scene(scene: Any) -> dict:
       out["sensor_names"] = [
         getattr(s, "name", type(s).__name__) for s in sensors
       ]
+      out["sensors"] = [_serialize_sensor(s) for s in sensors]
     elif isinstance(sensors, dict):
       out["sensor_names"] = list(sensors.keys())
+      out["sensors"] = {k: _serialize_sensor(s) for k, s in sensors.items()}
   return out
 
 
@@ -313,6 +348,8 @@ def build_all_snapshots() -> dict:
       obs_noise=not play,
       dr_scale=1.0,
       reset_joints=not play,
+      contact_phase_term=True,
+      obs_history=5,
     )
     key = _combo_key(trajectory, play)
     result[key] = serialize_cfg(cfg, trajectory, play)

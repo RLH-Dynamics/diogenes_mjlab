@@ -166,6 +166,24 @@ def foot_contact_phase_dual_parabola(
   return cost  # [B]
 
 
+def is_specific_termination(
+  env: ManagerBasedRlEnv,
+  term_name: str,
+) -> torch.Tensor:
+  """Binary cost (1.0) on the step a SPECIFIC termination term fires. (num_envs,).
+
+  Reads the named term's done buffer from the termination manager, which is
+  computed immediately before the rewards each step, so the returned mask aligns
+  with the exact step on which that termination triggers.  Pair with a negative
+  weight to apply a penalty dedicated to one termination (independent of the
+  blanket ``termination_penalty``).
+
+  Args:
+    term_name: the termination dict key registered in the env config.
+  """
+  return env.termination_manager.get_term(term_name).float()
+
+
 def slider_dual_parabola_tracking(
   env: ManagerBasedRlEnv,
   traj_min: float,
