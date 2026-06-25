@@ -696,12 +696,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.001
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.01
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
@@ -712,7 +712,7 @@
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": 0.0
+        "weight": -0.1
       },
       "contact_phase_termination": {
         "func": "is_specific_termination",
@@ -786,7 +786,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -2.5e-07
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -801,7 +801,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -1.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
@@ -809,6 +809,24 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_dual_parabola_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 3.0,
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "weight": 0.5
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -822,6 +840,24 @@
           },
           "gravity": 9.81,
           "std": 0.1,
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "weight": 2.0
+      },
+      "slider_velocity": {
+        "func": "slider_dual_parabola_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.3,
           "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
@@ -846,7 +882,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0001
       }
     },
     "scene": {
@@ -1421,12 +1457,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.001
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.01
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
@@ -1437,7 +1473,7 @@
           "traj_min": 0.1,
           "traj_transition": 0.25
         },
-        "weight": 0.0
+        "weight": -0.1
       },
       "contact_phase_termination": {
         "func": "is_specific_termination",
@@ -1511,7 +1547,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -2.5e-07
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -1526,7 +1562,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -1.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
@@ -1534,6 +1570,24 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_dual_parabola_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 3.0,
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "weight": 0.5
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -1547,6 +1601,24 @@
           },
           "gravity": 9.81,
           "std": 0.1,
+          "traj_max": 0.35,
+          "traj_min": 0.1,
+          "traj_transition": 0.25
+        },
+        "weight": 2.0
+      },
+      "slider_velocity": {
+        "func": "slider_dual_parabola_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.3,
           "traj_max": 0.35,
           "traj_min": 0.1,
           "traj_transition": 0.25
@@ -1571,7 +1643,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0001
       }
     },
     "scene": {
@@ -2346,12 +2418,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.001
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.01
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -2432,7 +2504,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -2.5e-07
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -2447,7 +2519,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -1.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
@@ -2455,6 +2527,23 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_sinusoid_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "sine_period": 2.0,
+          "std": 3.0,
+          "traj_max": 0.35,
+          "traj_min": 0.1
+        },
+        "weight": 2.0
       },
       "slider_trajectory": {
         "func": "slider_sinusoid_tracking",
@@ -2472,6 +2561,23 @@
           "traj_min": 0.1
         },
         "weight": 30.0
+      },
+      "slider_velocity": {
+        "func": "slider_sinusoid_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "sine_period": 2.0,
+          "std": 0.3,
+          "traj_max": 0.35,
+          "traj_min": 0.1
+        },
+        "weight": 10.0
       },
       "termination_penalty": {
         "func": "is_terminated",
@@ -2491,7 +2597,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0001
       }
     },
     "scene": {
@@ -3061,12 +3167,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.001
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.0
+        "weight": -0.01
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -3147,7 +3253,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -2.5e-07
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -3162,7 +3268,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -1.0
       },
       "lateral_contact_force": {
         "func": "lateral_contact_force_l2",
@@ -3170,6 +3276,23 @@
           "sensor_name": "foot_ground_contact"
         },
         "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_sinusoid_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "sine_period": 2.0,
+          "std": 3.0,
+          "traj_max": 0.35,
+          "traj_min": 0.1
+        },
+        "weight": 2.0
       },
       "slider_trajectory": {
         "func": "slider_sinusoid_tracking",
@@ -3187,6 +3310,23 @@
           "traj_min": 0.1
         },
         "weight": 30.0
+      },
+      "slider_velocity": {
+        "func": "slider_sinusoid_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "sine_period": 2.0,
+          "std": 0.3,
+          "traj_max": 0.35,
+          "traj_min": 0.1
+        },
+        "weight": 10.0
       },
       "termination_penalty": {
         "func": "is_terminated",
@@ -3206,7 +3346,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0001
       }
     },
     "scene": {

@@ -32,6 +32,8 @@ SLIDER_CFG = SceneEntityCfg("robot", joint_names=("slider",))
 from .trajectories import (  # noqa: F401, E402
   dual_parabola_timing,
   dual_parabola_reference,
+  dual_parabola_velocity,
+  dual_parabola_acceleration,
 )
 
 # ---------------------------------------------------------------------------
@@ -58,7 +60,11 @@ from .rewards import (  # noqa: F401, E402
   foot_contact_phase_dual_parabola,
   is_specific_termination,
   slider_dual_parabola_tracking,
+  slider_dual_parabola_velocity_tracking,
+  slider_dual_parabola_acceleration_tracking,
   slider_sinusoid_tracking,
+  slider_sinusoid_velocity_tracking,
+  slider_sinusoid_acceleration_tracking,
   foot_xy_position_tracking,
 )
 

@@ -13,7 +13,14 @@ from mjlab.sensor import ContactSensor
 
 from ..constants import GRAVITY
 from ..accessors import carriage_height as _carriage_height
-from .trajectories import dual_parabola_timing, dual_parabola_reference
+from ..accessors import carriage_vel as _carriage_vel
+from ..accessors import carriage_acc as _carriage_acc
+from .trajectories import (
+  dual_parabola_timing,
+  dual_parabola_reference,
+  dual_parabola_velocity,
+  dual_parabola_acceleration,
+)
 from .observations import _phase
 
 if TYPE_CHECKING:
@@ -243,6 +250,130 @@ def slider_sinusoid_tracking(
   env.extras["log"]["Metrics/slider_track_err_mean"] = err.abs().mean()
   env.extras["log"]["Metrics/slider_height_ref_mean"] = h_ref.mean()
   env.extras["log"]["Metrics/slider_height_mean"] = height.mean()
+  return reward
+
+
+def slider_dual_parabola_velocity_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  std: float,
+  gravity: float = GRAVITY,
+  asset_cfg: SceneEntityCfg = _SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking the dual-parabola velocity profile. (num_envs,)."""
+  t_total, _, _, _, _ = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  asset: Entity = env.scene[asset_cfg.name]
+  vel = _carriage_vel(asset, asset_cfg)  # [B], +up (m/s)
+
+  phi = _phase(env, t_total)  # [B], uses the derived period
+  v_ref = dual_parabola_velocity(
+    phi, traj_min, traj_max, traj_transition, gravity
+  )  # [B]
+
+  err = vel - v_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_vel_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_vel_ref_mean"] = v_ref.mean()
+  env.extras["log"]["Metrics/slider_vel_mean"] = vel.mean()
+  return reward
+
+
+def slider_dual_parabola_acceleration_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  std: float,
+  gravity: float = GRAVITY,
+  asset_cfg: SceneEntityCfg = _SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking the dual-parabola acceleration profile. (num_envs,)."""
+  t_total, _, _, _, _ = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  asset: Entity = env.scene[asset_cfg.name]
+  acc = _carriage_acc(asset, asset_cfg)  # [B], +up (m/s^2)
+
+  phi = _phase(env, t_total)  # [B], uses the derived period
+  a_ref = dual_parabola_acceleration(
+    phi, traj_min, traj_max, traj_transition, gravity
+  )  # [B]
+
+  err = acc - a_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_acc_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_acc_ref_mean"] = a_ref.mean()
+  env.extras["log"]["Metrics/slider_acc_mean"] = acc.mean()
+  return reward
+
+
+def slider_sinusoid_velocity_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  sine_period: float,
+  std: float,
+  asset_cfg: SceneEntityCfg = _SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking a smooth sinusoidal carriage velocity. (num_envs,)."""
+  assert traj_max >= traj_min, "Require traj_max >= traj_min."
+  assert sine_period > 0.0, "Require sine_period > 0."
+
+  amp = 0.5 * (traj_max - traj_min)
+  omega = 2.0 * math.pi / sine_period
+
+  asset: Entity = env.scene[asset_cfg.name]
+  vel = _carriage_vel(asset, asset_cfg)  # [B], +up (m/s)
+
+  phi = _phase(env, sine_period)  # [B], same free period as the position term
+  # h_ref = mid - amp*cos(2π·phi)  =>  dh/dt = amp*omega*sin(2π·phi).
+  v_ref = amp * omega * torch.sin(2.0 * math.pi * phi)  # [B]
+
+  err = vel - v_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_vel_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_vel_ref_mean"] = v_ref.mean()
+  env.extras["log"]["Metrics/slider_vel_mean"] = vel.mean()
+  return reward
+
+
+def slider_sinusoid_acceleration_tracking(
+  env: ManagerBasedRlEnv,
+  traj_min: float,
+  traj_max: float,
+  sine_period: float,
+  std: float,
+  asset_cfg: SceneEntityCfg = _SLIDER_CFG,
+) -> torch.Tensor:
+  """Dense Gaussian reward tracking a smooth sinusoidal carriage acceleration. (num_envs,)."""
+  assert traj_max >= traj_min, "Require traj_max >= traj_min."
+  assert sine_period > 0.0, "Require sine_period > 0."
+
+  amp = 0.5 * (traj_max - traj_min)
+  omega = 2.0 * math.pi / sine_period
+
+  asset: Entity = env.scene[asset_cfg.name]
+  acc = _carriage_acc(asset, asset_cfg)  # [B], +up (m/s^2)
+
+  phi = _phase(env, sine_period)  # [B], same free period as the position term
+  # h_ref = mid - amp*cos(2π·phi)  =>  d2h/dt2 = amp*omega^2*cos(2π·phi).
+  a_ref = amp * (omega**2) * torch.cos(2.0 * math.pi * phi)  # [B]
+
+  err = acc - a_ref
+  reward = torch.exp(-torch.square(err) / (std**2))  # [B] in (0, 1]
+
+  env.extras["log"]["Metrics/slider_acc_track_err_mean"] = err.abs().mean()
+  env.extras["log"]["Metrics/slider_acc_ref_mean"] = a_ref.mean()
+  env.extras["log"]["Metrics/slider_acc_mean"] = acc.mean()
   return reward
 
 

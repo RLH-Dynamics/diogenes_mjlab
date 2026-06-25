@@ -114,3 +114,61 @@ def dual_parabola_reference(
   )
 
   return torch.where(phi < flight_frac, flight_h, recovery_h)
+
+
+def dual_parabola_velocity(
+  phi: torch.Tensor,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+) -> torch.Tensor:
+  """Reference carriage velocity v_ref(phi), +up. Shape == phi.shape.
+
+  Exact time-derivative of :func:`dual_parabola_reference`:
+
+    * FLIGHT arc (phi in [0, flight_frac]): free fall, v = v0 - gravity * t.
+    * RECOVERY arc (phi in [flight_frac, 1)): constant accel, with
+      t' = t - T_flight, v = -v0 + recovery_accel * t'.
+
+  Velocity is continuous at both arc joins by construction (it equals -v0 there).
+  """
+  t_total, flight_frac, v0, recovery_accel, t_flight = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  t = phi * t_total  # real time within the cycle, seconds
+
+  # FLIGHT: v = v0 - gravity * t.
+  flight_v = v0 - gravity * t
+
+  # RECOVERY: v = -v0 + recovery_accel * t'.
+  tr = t - t_flight
+  recovery_v = -v0 + recovery_accel * tr
+
+  return torch.where(phi < flight_frac, flight_v, recovery_v)
+
+
+def dual_parabola_acceleration(
+  phi: torch.Tensor,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+) -> torch.Tensor:
+  """Reference carriage acceleration a_ref(phi), +up. Shape == phi.shape.
+
+  Exact second time-derivative of :func:`dual_parabola_reference`; piecewise
+  constant per arc (with a step at the flight/recovery boundary):
+
+    * FLIGHT arc (phi in [0, flight_frac]): a = -gravity.
+    * RECOVERY arc (phi in [flight_frac, 1)): a = +recovery_accel.
+  """
+  _, flight_frac, _, recovery_accel, _ = dual_parabola_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  flight_a = torch.full_like(phi, -gravity)
+  recovery_a = torch.full_like(phi, recovery_accel)
+
+  return torch.where(phi < flight_frac, flight_a, recovery_a)
