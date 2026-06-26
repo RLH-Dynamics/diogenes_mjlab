@@ -10,5 +10,5 @@ continue to work unchanged.
 """
 
 from .config import diogenes_env_cfg, TrajectoryType  # noqa: F401
-from .config.rewards import TRAJ_T  # noqa: F401
+from .config.rewards import TRAJ_T, SPRING_T  # noqa: F401
 from .constants import SINE_PERIOD  # noqa: F401

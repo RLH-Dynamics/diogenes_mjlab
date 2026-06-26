@@ -325,6 +325,8 @@ ALL_COMBOS = [
   ("dual_parabola", True),
   ("sine", False),
   ("sine", True),
+  ("spring", False),
+  ("spring", True),
 ]
 
 

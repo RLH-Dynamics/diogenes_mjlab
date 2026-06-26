@@ -588,7 +588,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.71392156
+              "hop_period": 0.65949249
             }
           }
         }
@@ -654,7 +654,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.71392156
+              "hop_period": 0.65949249
             }
           },
           "slider_pos": {
@@ -696,23 +696,23 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.1
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
         "params": {
           "gravity": 9.81,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": -0.1
+        "weight": -1.0
       },
       "contact_phase_termination": {
         "func": "is_specific_termination",
@@ -734,7 +734,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0005
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -748,7 +748,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.0
+        "weight": -0.2
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -769,9 +769,9 @@
             0.0025,
             -0.10679
           ],
-          "std": 0.05
+          "std": 0.1
         },
-        "weight": 1.0
+        "weight": 6.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -786,7 +786,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -822,11 +822,11 @@
           },
           "gravity": 9.81,
           "std": 3.0,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 0.5
+        "weight": 0.0
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -840,11 +840,11 @@
           },
           "gravity": 9.81,
           "std": 0.1,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 2.0
+        "weight": 20.0
       },
       "slider_velocity": {
         "func": "slider_dual_parabola_velocity_tracking",
@@ -858,11 +858,11 @@
           },
           "gravity": 9.81,
           "std": 0.3,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 1.0
+        "weight": 5.0
       },
       "termination_penalty": {
         "func": "is_terminated",
@@ -882,7 +882,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0001
+        "weight": -0.002
       }
     },
     "scene": {
@@ -930,9 +930,9 @@
           "gravity": 9.81,
           "phase_margin": 0.15,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
         "time_out": false
       },
@@ -1340,7 +1340,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.71392156
+              "hop_period": 0.65949249
             }
           }
         }
@@ -1406,7 +1406,7 @@
             "func": "phase_clock",
             "noise": null,
             "params": {
-              "hop_period": 0.71392156
+              "hop_period": 0.65949249
             }
           },
           "slider_pos": {
@@ -1457,23 +1457,23 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.1
       },
       "contact_phase": {
         "func": "foot_contact_phase_dual_parabola",
         "params": {
           "gravity": 9.81,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": -0.1
+        "weight": -1.0
       },
       "contact_phase_termination": {
         "func": "is_specific_termination",
@@ -1495,7 +1495,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0005
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -1509,7 +1509,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.0
+        "weight": -0.2
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -1530,9 +1530,9 @@
             0.0025,
             -0.10679
           ],
-          "std": 0.05
+          "std": 0.1
         },
-        "weight": 1.0
+        "weight": 6.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -1547,7 +1547,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -1583,11 +1583,11 @@
           },
           "gravity": 9.81,
           "std": 3.0,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 0.5
+        "weight": 0.0
       },
       "slider_trajectory": {
         "func": "slider_dual_parabola_tracking",
@@ -1601,11 +1601,11 @@
           },
           "gravity": 9.81,
           "std": 0.1,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 2.0
+        "weight": 20.0
       },
       "slider_velocity": {
         "func": "slider_dual_parabola_velocity_tracking",
@@ -1619,11 +1619,11 @@
           },
           "gravity": 9.81,
           "std": 0.3,
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
-        "weight": 1.0
+        "weight": 5.0
       },
       "termination_penalty": {
         "func": "is_terminated",
@@ -1643,7 +1643,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0001
+        "weight": -0.002
       }
     },
     "scene": {
@@ -1691,9 +1691,9 @@
           "gravity": 9.81,
           "phase_margin": 0.15,
           "sensor_name": "foot_ground_contact",
-          "traj_max": 0.35,
-          "traj_min": 0.1,
-          "traj_transition": 0.25
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
         },
         "time_out": false
       },
@@ -2418,12 +2418,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.1
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -2452,7 +2452,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0005
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -2466,7 +2466,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.0
+        "weight": -0.2
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -2487,9 +2487,9 @@
             0.0025,
             -0.10679
           ],
-          "std": 0.05
+          "std": 0.1
         },
-        "weight": 1.0
+        "weight": 6.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -2504,7 +2504,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -2540,8 +2540,8 @@
           },
           "sine_period": 2.0,
           "std": 3.0,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 2.0
       },
@@ -2557,8 +2557,8 @@
           },
           "sine_period": 2.0,
           "std": 0.1,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 30.0
       },
@@ -2574,8 +2574,8 @@
           },
           "sine_period": 2.0,
           "std": 0.3,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 10.0
       },
@@ -2597,7 +2597,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0001
+        "weight": -0.002
       }
     },
     "scene": {
@@ -3167,12 +3167,12 @@
       "action_acc": {
         "func": "action_acc_l2",
         "params": {},
-        "weight": -0.001
+        "weight": -0.0
       },
       "action_rate": {
         "func": "action_rate_l2",
         "params": {},
-        "weight": -0.01
+        "weight": -0.1
       },
       "contact_phase": {
         "func": "foot_contact_required",
@@ -3201,7 +3201,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0
+        "weight": -0.0005
       },
       "foot_slip": {
         "func": "foot_slip",
@@ -3215,7 +3215,7 @@
           },
           "sensor_name": "foot_ground_contact"
         },
-        "weight": -0.0
+        "weight": -0.2
       },
       "foot_xy_position": {
         "func": "foot_xy_position_tracking",
@@ -3236,9 +3236,9 @@
             0.0025,
             -0.10679
           ],
-          "std": 0.05
+          "std": 0.1
         },
-        "weight": 1.0
+        "weight": 6.0
       },
       "joint_acc": {
         "func": "joint_acc_l2",
@@ -3253,7 +3253,7 @@
             "name": "robot"
           }
         },
-        "weight": -2.5e-07
+        "weight": -0.0
       },
       "joint_limits": {
         "func": "joint_pos_limits",
@@ -3289,8 +3289,8 @@
           },
           "sine_period": 2.0,
           "std": 3.0,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 2.0
       },
@@ -3306,8 +3306,8 @@
           },
           "sine_period": 2.0,
           "std": 0.1,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 30.0
       },
@@ -3323,8 +3323,8 @@
           },
           "sine_period": 2.0,
           "std": 0.3,
-          "traj_max": 0.35,
-          "traj_min": 0.1
+          "traj_max": 0.45,
+          "traj_min": 0.05
         },
         "weight": 10.0
       },
@@ -3346,7 +3346,7 @@
             "name": "robot"
           }
         },
-        "weight": -0.0001
+        "weight": -0.002
       }
     },
     "scene": {
@@ -3418,5 +3418,1727 @@
       }
     },
     "trajectory": "sine"
+  },
+  "spring__play_False": {
+    "actions": {
+      "joint_pos": {
+        "__type__": "JointPositionActionCfg",
+        "actuator_names": [
+          "hip",
+          "thigh",
+          "calf"
+        ],
+        "entity_name": "robot",
+        "scale": 1.0,
+        "use_default_offset": true
+      }
+    },
+    "decimation": 10,
+    "episode_length_s": 20.0,
+    "events": {
+      "com_offset": {
+        "func": "body_com_offset",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "leg_mount_assy",
+              "hip_assy",
+              "thigh_assy",
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "operation": "add",
+          "ranges": {
+            "0": [
+              -0.025,
+              0.025
+            ],
+            "1": [
+              -0.025,
+              0.025
+            ],
+            "2": [
+              -0.025,
+              0.025
+            ]
+          }
+        }
+      },
+      "encoder_bias": {
+        "func": "encoder_bias",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "bias_range": [
+            -0.015,
+            0.015
+          ]
+        }
+      },
+      "foot_friction": {
+        "func": "geom_friction",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "geom_names": [
+              "foot"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "operation": "abs",
+          "ranges": [
+            0.3,
+            1.2
+          ],
+          "shared_random": true
+        }
+      },
+      "joint_armature": {
+        "func": "joint_armature",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "operation": "abs",
+          "ranges": [
+            0.016,
+            0.024
+          ]
+        }
+      },
+      "joint_friction": {
+        "func": "joint_friction",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "operation": "abs",
+          "ranges": [
+            0.15,
+            1.6
+          ]
+        }
+      },
+      "link_inertial": {
+        "func": "pseudo_inertia",
+        "mode": "startup",
+        "params": {
+          "alpha_range": [
+            -0.11,
+            0.09
+          ],
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "leg_mount_assy",
+              "hip_assy",
+              "thigh_assy",
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform"
+        }
+      },
+      "pd_gains": {
+        "func": "pd_gains",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "actuator_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "kd_range": [
+            0.89,
+            1.12
+          ],
+          "kp_range": [
+            0.89,
+            1.12
+          ],
+          "operation": "scale"
+        }
+      },
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      },
+      "reset_joint_pose": {
+        "func": "reset_joints_uniform_legal",
+        "mode": "reset",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "margin": 0.02,
+          "safety_eps": 0.001,
+          "velocity_range": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "slider_friction": {
+        "func": "joint_friction",
+        "mode": "startup",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "distribution": "uniform",
+          "operation": "abs",
+          "ranges": [
+            1.0,
+            3.5
+          ]
+        }
+      }
+    },
+    "metrics": {
+      "carriage/acc": {
+        "func": "carriage_acc_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "carriage/height": {
+        "func": "carriage_height_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "carriage/vel": {
+        "func": "carriage_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "foot_force/mag": {
+        "func": "contact_force_magnitude_metric",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/x": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 0,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/y": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 1,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/z": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 2,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "power/calf": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "power/hip": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "power/thigh": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "power/total": {
+        "func": "total_mechanical_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "qpos/calf": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "qpos/hip": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "qpos/thigh": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "qvel/calf": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "qvel/hip": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "qvel/thigh": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "slider/acc": {
+        "func": "slider_acc_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "slider/pos": {
+        "func": "slider_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "slider/vel": {
+        "func": "slider_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "torque/calf": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "torque/hip": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "torque/thigh": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      }
+    },
+    "observations": {
+      "actor": {
+        "concatenate_terms": true,
+        "enable_corruption": true,
+        "flatten_history_dim": true,
+        "history_length": 5,
+        "term_names_in_order": [
+          "joint_pos",
+          "joint_vel",
+          "last_action",
+          "phase_clock"
+        ],
+        "terms": {
+          "joint_pos": {
+            "delay_max_lag": 3,
+            "delay_min_lag": 0,
+            "func": "joint_pos_rel",
+            "noise": {
+              "__type__": "UniformNoiseCfg",
+              "n_max": 0.01,
+              "n_min": -0.01,
+              "operation": "add"
+            },
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "joint_vel": {
+            "delay_max_lag": 3,
+            "delay_min_lag": 0,
+            "func": "joint_vel_rel",
+            "noise": {
+              "__type__": "UniformNoiseCfg",
+              "n_max": 0.5,
+              "n_min": -0.5,
+              "operation": "add"
+            },
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "last_action": {
+            "delay_max_lag": 3,
+            "delay_min_lag": 0,
+            "func": "last_action",
+            "noise": null,
+            "params": {}
+          },
+          "phase_clock": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "phase_clock",
+            "noise": null,
+            "params": {
+              "hop_period": 0.62411041
+            }
+          }
+        }
+      },
+      "critic": {
+        "concatenate_terms": true,
+        "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
+        "term_names_in_order": [
+          "joint_pos",
+          "joint_vel",
+          "slider_pos",
+          "slider_vel",
+          "last_action",
+          "phase_clock"
+        ],
+        "terms": {
+          "joint_pos": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_pos_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "joint_vel": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_vel_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "last_action": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "last_action",
+            "noise": null,
+            "params": {}
+          },
+          "phase_clock": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "phase_clock",
+            "noise": null,
+            "params": {
+              "hop_period": 0.62411041
+            }
+          },
+          "slider_pos": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "slider_pos",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "slider"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "slider_vel": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "slider_vel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "slider"
+                ],
+                "name": "robot"
+              }
+            }
+          }
+        }
+      }
+    },
+    "play": false,
+    "recorders": {},
+    "rewards": {
+      "action_acc": {
+        "func": "action_acc_l2",
+        "params": {},
+        "weight": -0.0
+      },
+      "action_rate": {
+        "func": "action_rate_l2",
+        "params": {},
+        "weight": -0.1
+      },
+      "contact_phase": {
+        "func": "foot_contact_phase_spring",
+        "params": {
+          "gravity": 9.81,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": -0.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
+      },
+      "electrical_power": {
+        "func": "electrical_power_cost",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.0005
+      },
+      "foot_slip": {
+        "func": "foot_slip",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "sensor_name": "foot_ground_contact"
+        },
+        "weight": -0.2
+      },
+      "foot_xy_position": {
+        "func": "foot_xy_position_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "foot_offset_b": [
+            -0.176776,
+            0.176777,
+            -0.014
+          ],
+          "ref_xy": [
+            0.0025,
+            -0.10679
+          ],
+          "std": 0.1
+        },
+        "weight": 6.0
+      },
+      "joint_acc": {
+        "func": "joint_acc_l2",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.0
+      },
+      "joint_limits": {
+        "func": "joint_pos_limits",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -1.0
+      },
+      "lateral_contact_force": {
+        "func": "lateral_contact_force_l2",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        },
+        "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_spring_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 3.0,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 0.0
+      },
+      "slider_trajectory": {
+        "func": "slider_spring_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.1,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 10.0
+      },
+      "slider_velocity": {
+        "func": "slider_spring_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.3,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 0.0
+      },
+      "termination_penalty": {
+        "func": "is_terminated",
+        "params": {},
+        "weight": -100.0
+      },
+      "torque": {
+        "func": "joint_torques_l2",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "actuator_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.002
+      }
+    },
+    "scene": {
+      "entity_names": [
+        "robot"
+      ],
+      "env_spacing": 2.0,
+      "num_envs": 4096,
+      "sensor_names": [
+        "foot_ground_contact"
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
+    },
+    "sim": {
+      "mujoco": {
+        "timestep": 0.002
+      },
+      "nconmax": 16,
+      "njmax": 64
+    },
+    "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_contact_phase_wrong_spring",
+        "params": {
+          "gravity": 9.81,
+          "phase_margin": 0.15,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "time_out": false
+      },
+      "joint_at_limit": {
+        "func": "joint_at_limit",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "margin": 0.02
+        },
+        "time_out": false
+      },
+      "time_out": {
+        "func": "time_out",
+        "params": {},
+        "time_out": true
+      }
+    },
+    "trajectory": "spring"
+  },
+  "spring__play_True": {
+    "actions": {
+      "joint_pos": {
+        "__type__": "JointPositionActionCfg",
+        "actuator_names": [
+          "hip",
+          "thigh",
+          "calf"
+        ],
+        "entity_name": "robot",
+        "scale": 1.0,
+        "use_default_offset": true
+      }
+    },
+    "decimation": 10,
+    "episode_length_s": 1000000000,
+    "events": {
+      "reset_base_pose": {
+        "func": "reset_root_state_uniform",
+        "mode": "reset",
+        "params": {
+          "pose_range": {}
+        }
+      }
+    },
+    "metrics": {
+      "carriage/acc": {
+        "func": "carriage_acc_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "carriage/height": {
+        "func": "carriage_height_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "carriage/vel": {
+        "func": "carriage_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "foot_force/mag": {
+        "func": "contact_force_magnitude_metric",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/x": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 0,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/y": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 1,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "foot_force/z": {
+        "func": "contact_force_component_metric",
+        "params": {
+          "component": 2,
+          "sensor_name": "foot_ground_contact"
+        }
+      },
+      "power/calf": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "power/hip": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "power/thigh": {
+        "func": "joint_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "power/total": {
+        "func": "total_mechanical_power_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "qpos/calf": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "qpos/hip": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "qpos/thigh": {
+        "func": "joint_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "qvel/calf": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "qvel/hip": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "qvel/thigh": {
+        "func": "joint_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      },
+      "slider/acc": {
+        "func": "slider_acc_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "slider/pos": {
+        "func": "slider_pos_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "slider/vel": {
+        "func": "slider_vel_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          }
+        }
+      },
+      "torque/calf": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 2
+        }
+      },
+      "torque/hip": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 0
+        }
+      },
+      "torque/thigh": {
+        "func": "joint_torque_metric",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "component": 1
+        }
+      }
+    },
+    "observations": {
+      "actor": {
+        "concatenate_terms": true,
+        "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": 5,
+        "term_names_in_order": [
+          "joint_pos",
+          "joint_vel",
+          "last_action",
+          "phase_clock"
+        ],
+        "terms": {
+          "joint_pos": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_pos_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "joint_vel": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_vel_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "last_action": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "last_action",
+            "noise": null,
+            "params": {}
+          },
+          "phase_clock": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "phase_clock",
+            "noise": null,
+            "params": {
+              "hop_period": 0.62411041
+            }
+          }
+        }
+      },
+      "critic": {
+        "concatenate_terms": true,
+        "enable_corruption": false,
+        "flatten_history_dim": true,
+        "history_length": null,
+        "term_names_in_order": [
+          "joint_pos",
+          "joint_vel",
+          "slider_pos",
+          "slider_vel",
+          "last_action",
+          "phase_clock"
+        ],
+        "terms": {
+          "joint_pos": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_pos_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "joint_vel": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "joint_vel_rel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "hip",
+                  "thigh",
+                  "calf"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "last_action": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "last_action",
+            "noise": null,
+            "params": {}
+          },
+          "phase_clock": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "phase_clock",
+            "noise": null,
+            "params": {
+              "hop_period": 0.62411041
+            }
+          },
+          "slider_pos": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "slider_pos",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "slider"
+                ],
+                "name": "robot"
+              }
+            }
+          },
+          "slider_vel": {
+            "delay_max_lag": 0,
+            "delay_min_lag": 0,
+            "func": "slider_vel",
+            "noise": null,
+            "params": {
+              "asset_cfg": {
+                "__type__": "SceneEntityCfg",
+                "joint_names": [
+                  "slider"
+                ],
+                "name": "robot"
+              }
+            }
+          }
+        }
+      }
+    },
+    "play": true,
+    "recorders": {
+      "csv": {
+        "func": "DiogenesCsvRecorder",
+        "params": {
+          "env_idx": 0,
+          "run_tag": "run",
+          "sensor_name": "foot_ground_contact"
+        }
+      }
+    },
+    "rewards": {
+      "action_acc": {
+        "func": "action_acc_l2",
+        "params": {},
+        "weight": -0.0
+      },
+      "action_rate": {
+        "func": "action_rate_l2",
+        "params": {},
+        "weight": -0.1
+      },
+      "contact_phase": {
+        "func": "foot_contact_phase_spring",
+        "params": {
+          "gravity": 9.81,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": -0.0
+      },
+      "contact_phase_termination": {
+        "func": "is_specific_termination",
+        "params": {
+          "term_name": "contact_phase_violation"
+        },
+        "weight": -200.0
+      },
+      "electrical_power": {
+        "func": "electrical_power_cost",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.0005
+      },
+      "foot_slip": {
+        "func": "foot_slip",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "sensor_name": "foot_ground_contact"
+        },
+        "weight": -0.2
+      },
+      "foot_xy_position": {
+        "func": "foot_xy_position_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "body_names": [
+              "calf_assy"
+            ],
+            "name": "robot"
+          },
+          "foot_offset_b": [
+            -0.176776,
+            0.176777,
+            -0.014
+          ],
+          "ref_xy": [
+            0.0025,
+            -0.10679
+          ],
+          "std": 0.1
+        },
+        "weight": 6.0
+      },
+      "joint_acc": {
+        "func": "joint_acc_l2",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.0
+      },
+      "joint_limits": {
+        "func": "joint_pos_limits",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -1.0
+      },
+      "lateral_contact_force": {
+        "func": "lateral_contact_force_l2",
+        "params": {
+          "sensor_name": "foot_ground_contact"
+        },
+        "weight": -0.0
+      },
+      "slider_acceleration": {
+        "func": "slider_spring_acceleration_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 3.0,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 0.0
+      },
+      "slider_trajectory": {
+        "func": "slider_spring_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.1,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 10.0
+      },
+      "slider_velocity": {
+        "func": "slider_spring_velocity_tracking",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "slider"
+            ],
+            "name": "robot"
+          },
+          "gravity": 9.81,
+          "std": 0.3,
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "weight": 0.0
+      },
+      "termination_penalty": {
+        "func": "is_terminated",
+        "params": {},
+        "weight": -100.0
+      },
+      "torque": {
+        "func": "joint_torques_l2",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "actuator_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          }
+        },
+        "weight": -0.002
+      }
+    },
+    "scene": {
+      "entity_names": [
+        "robot"
+      ],
+      "env_spacing": 2.0,
+      "num_envs": 1,
+      "sensor_names": [
+        "foot_ground_contact"
+      ],
+      "sensors": [
+        {
+          "__type__": "ContactSensorCfg",
+          "name": "foot_ground_contact",
+          "primary": {
+            "entity": "robot",
+            "mode": "body",
+            "pattern": "calf_assy"
+          },
+          "secondary": {
+            "entity": null,
+            "mode": "geom",
+            "pattern": "terrain"
+          }
+        }
+      ],
+      "terrain": {
+        "__type__": "TerrainEntityCfg",
+        "env_spacing": 2.0,
+        "terrain_type": "plane"
+      }
+    },
+    "sim": {
+      "mujoco": {
+        "timestep": 0.002
+      },
+      "nconmax": 16,
+      "njmax": 64
+    },
+    "terminations": {
+      "contact_phase_violation": {
+        "func": "foot_contact_phase_wrong_spring",
+        "params": {
+          "gravity": 9.81,
+          "phase_margin": 0.15,
+          "sensor_name": "foot_ground_contact",
+          "traj_max": 0.45,
+          "traj_min": 0.05,
+          "traj_transition": 0.15
+        },
+        "time_out": false
+      },
+      "joint_at_limit": {
+        "func": "joint_at_limit",
+        "params": {
+          "asset_cfg": {
+            "__type__": "SceneEntityCfg",
+            "joint_names": [
+              "hip",
+              "thigh",
+              "calf"
+            ],
+            "name": "robot"
+          },
+          "margin": 0.02
+        },
+        "time_out": false
+      },
+      "time_out": {
+        "func": "time_out",
+        "params": {},
+        "time_out": true
+      }
+    },
+    "trajectory": "spring"
   }
 }

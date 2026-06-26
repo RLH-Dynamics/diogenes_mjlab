@@ -12,7 +12,7 @@ from mjlab.sensor import ContactSensor
 
 from ..constants import GRAVITY
 from .observations import _phase
-from .trajectories import dual_parabola_timing
+from .trajectories import dual_parabola_timing, spring_timing
 
 if TYPE_CHECKING:
   from mjlab.envs import ManagerBasedRlEnv
@@ -96,6 +96,65 @@ def foot_contact_phase_wrong_dual_parabola(
   assert found is not None, (
     f"Sensor '{sensor_name}' must request the 'found' field for "
     "foot_contact_phase_wrong_dual_parabola."
+  )
+  in_contact = (found > 0).any(dim=-1)  # [B] bool
+
+  phi = _phase(env, t_total)  # [B], derived period -- matches the slider reward
+  in_flight = phi < flight_frac  # [B] bool: should be AIRBORNE here
+
+  # Wrong iff (in flight AND touching) OR (in stance AND airborne).
+  wrong = (in_flight & in_contact) | ((~in_flight) & (~in_contact))  # [B]
+
+  # Exempt a band around each transition: phi ~ 0/1 (liftoff) and phi ~
+  # flight_frac (landing).  The 0/1 band also covers the grounded reset pose.
+  near_transition = (
+    (phi < phase_margin)
+    | (phi > 1.0 - phase_margin)
+    | (torch.abs(phi - flight_frac) < phase_margin)
+  )  # [B] bool
+
+  terminate = wrong & ~near_transition  # [B]
+
+  env.extras["log"]["Metrics/contact_phase_terminate_frac"] = terminate.float().mean()
+  return terminate  # [B]
+
+
+def foot_contact_phase_wrong_spring(
+  env: ManagerBasedRlEnv,
+  sensor_name: str,
+  traj_min: float,
+  traj_max: float,
+  traj_transition: float,
+  gravity: float = GRAVITY,
+  phase_margin: float = 0.15,
+) -> torch.Tensor:
+  """Terminate when foot/ground contact is WRONG for the spring-hop phase.
+
+  Spring analogue of :func:`foot_contact_phase_wrong_dual_parabola`: the spring hop
+  has the SAME flight arc, so the foot must be AIRBORNE during flight
+  (``phi < flight_frac``) and IN CONTACT during the spring (stance) arc. A band of
+  ``+- phase_margin`` (cycle fraction) around each liftoff/landing transition is
+  exempt, exactly as for the dual-parabola case.
+
+  Shape (num_envs,), bool.
+
+  Args:
+    sensor_name: foot/ground contact sensor (must expose the ``found`` field).
+    traj_min, traj_max, traj_transition, gravity: spring geometry; the derived
+      period and flight fraction are recomputed from these so the phase here
+      matches the slider-tracking reward exactly.
+    phase_margin: half-width (cycle fraction) of the exempt band around each
+      contact-state transition.
+  """
+  t_total, flight_frac, _, _, _ = spring_timing(
+    traj_min, traj_max, traj_transition, gravity
+  )
+
+  sensor: ContactSensor = env.scene[sensor_name]
+  found = sensor.data.found
+  assert found is not None, (
+    f"Sensor '{sensor_name}' must request the 'found' field for "
+    "foot_contact_phase_wrong_spring."
   )
   in_contact = (found > 0).any(dim=-1)  # [B] bool
 

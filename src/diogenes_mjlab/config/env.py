@@ -47,7 +47,7 @@ from .rewards import _build_rewards
 from .entities import actuated_joints_cfg
 
 # Selector for which carriage trajectory the env tracks.
-TrajectoryType = Literal["dual_parabola", "sine"]
+TrajectoryType = Literal["dual_parabola", "sine", "spring"]
 
 
 def diogenes_env_cfg(
@@ -72,9 +72,12 @@ def diogenes_env_cfg(
       reflects the clean nominal plant).
     trajectory: Which carriage motion to track. ``"dual_parabola"`` (default)
       is the original gravity-exact dynamic motion; ``"sine"`` is the smooth,
-      gentle sinusoidal motion intended for a first sim-to-real transfer. Only
-      the slider-tracking reward and the phase-clock period differ between the
-      two; the foot-xy hold, all regularizers and terminations are identical.
+      gentle sinusoidal motion intended for a first sim-to-real transfer;
+      ``"spring"`` keeps the dual-parabola free-fall flight arc but replaces the
+      constant-acceleration recovery with a Hooke's-law spring stance. Only the
+      slider-tracking reward, the phase-clock period and (for sine vs the two
+      flight trajectories) the contact-phase term differ; the foot-xy hold and
+      all regularizers are identical.
     monitor: Register the live monitoring metric terms (Viser Metrics tab). If
       None, falls back to the ``DIOGENES_MONITOR`` env var, then defaults to True.
     record_csv: Register the per-step CSV recorder. If None, falls back to the
@@ -261,9 +264,17 @@ def diogenes_env_cfg(
   # liftoff/landing transition; the sine squat keeps the foot planted at all
   # times, so any loss of contact ends the episode.  The dedicated negative
   # reward is wired in config/rewards.py via CONTACT_PHASE_TERM_NAME.
-  if trajectory == "dual_parabola":
+  if trajectory in ("dual_parabola", "spring"):
+    # Both flight trajectories have a real airborne arc, so use the phase-keyed
+    # check (with a tolerance band around each liftoff/landing transition). The
+    # spring shares the dual-parabola flight arc but has its own derived period.
+    contact_phase_wrong_fn = (
+      diogenes_mdp.foot_contact_phase_wrong_dual_parabola
+      if trajectory == "dual_parabola"
+      else diogenes_mdp.foot_contact_phase_wrong_spring
+    )
     contact_phase_termination = TerminationTermCfg(
-      func=diogenes_mdp.foot_contact_phase_wrong_dual_parabola,
+      func=contact_phase_wrong_fn,
       params={
         "sensor_name": FOOT_CONTACT_SENSOR,
         "traj_min": TRAJ_MIN,

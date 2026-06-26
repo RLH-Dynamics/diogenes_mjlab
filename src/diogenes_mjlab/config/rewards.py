@@ -25,7 +25,7 @@ from .entities import (
   slider_cfg,
 )
 
-TrajectoryType = Literal["dual_parabola", "sine"]
+TrajectoryType = Literal["dual_parabola", "sine", "spring"]
 
 
 @dataclass(frozen=True)
@@ -39,36 +39,40 @@ class RewardWeights:
   """
 
   # Trajectory-tracking
-  slider_trajectory_dual_parabola: float = 2.0
+  slider_trajectory_dual_parabola: float = 20.0
   slider_trajectory_sine: float = 30.0
+  slider_trajectory_spring: float = 10.0
 
   # Trajectory velocity tracking (carriage vertical speed, +up)
-  slider_velocity_dual_parabola: float = 1.0
+  slider_velocity_dual_parabola: float = 5.0
   slider_velocity_sine: float = 10.0
+  slider_velocity_spring: float = 0.0
 
   # Trajectory acceleration tracking (carriage vertical accel, +up)
-  slider_acceleration_dual_parabola: float = 0.5
+  slider_acceleration_dual_parabola: float = 0.0
   slider_acceleration_sine: float = 2.0
+  slider_acceleration_spring: float = 0.0
 
   # Foot position hold
-  foot_xy_position: float = 1.0
+  foot_xy_position: float = 6.0
 
   # Contact-phase penalties (trajectory-dependent)
-  contact_phase_dual_parabola: float = -0.1
+  contact_phase_dual_parabola: float = -1.0
   contact_phase_sine: float = -2.0
+  contact_phase_spring: float = -0.0
 
   # Contact-force shaping
   lateral_contact_force: float = -0.0
 
   # Foot slip
-  foot_slip: float = -0.0
+  foot_slip: float = -0.2
 
   # Energy / torque / smoothness penalties
-  electrical_power: float = -0.0
-  torque: float = -1.0e-4
-  action_rate: float = -0.01
-  action_acc: float = -1.0e-3
-  joint_acc: float = -2.5e-7
+  electrical_power: float = -0.0005
+  torque: float = -0.002
+  action_rate: float = -4.0
+  action_acc: float = -0.0
+  joint_acc: float = -0.0
 
   # Safety
   joint_limits: float = -1.0
@@ -85,6 +89,12 @@ DEFAULT_REWARD_WEIGHTS = RewardWeights()
 # Dual-parabola derived cycle period (seconds). Computed once so the phase clock,
 # the trajectory reward, and any other phase-keyed term all share the SAME period.
 TRAJ_T = diogenes_mdp.dual_parabola_timing(
+  TRAJ_MIN, TRAJ_MAX, TRAJ_TRANSITION, GRAVITY
+)[0]
+
+# Spring-hop derived cycle period (seconds). Same role as TRAJ_T: the phase clock,
+# the trajectory reward and the contact-phase term all share this one period.
+SPRING_T = diogenes_mdp.spring_timing(
   TRAJ_MIN, TRAJ_MAX, TRAJ_TRANSITION, GRAVITY
 )[0]
 
@@ -125,6 +135,32 @@ def _slider_trajectory_reward(
       ),
     }
     return terms, TRAJ_T
+  elif trajectory == "spring":
+    spring_params = {
+      "traj_min": TRAJ_MIN,
+      "traj_max": TRAJ_MAX,
+      "traj_transition": TRAJ_TRANSITION,
+      "gravity": GRAVITY,
+      "asset_cfg": slider_cfg(),
+    }
+    terms = {
+      "slider_trajectory": RewardTermCfg(
+        func=diogenes_mdp.slider_spring_tracking,
+        weight=weights.slider_trajectory_spring,
+        params={**spring_params, "std": 0.1},
+      ),
+      "slider_velocity": RewardTermCfg(
+        func=diogenes_mdp.slider_spring_velocity_tracking,
+        weight=weights.slider_velocity_spring,
+        params={**spring_params, "std": 0.3},
+      ),
+      "slider_acceleration": RewardTermCfg(
+        func=diogenes_mdp.slider_spring_acceleration_tracking,
+        weight=weights.slider_acceleration_spring,
+        params={**spring_params, "std": 3.0},
+      ),
+    }
+    return terms, SPRING_T
   elif trajectory == "sine":
     sine_params = {
       "traj_min": TRAJ_MIN,
@@ -152,7 +188,8 @@ def _slider_trajectory_reward(
     return terms, SINE_PERIOD
   else:
     raise ValueError(
-      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola' or 'sine'."
+      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola', 'sine' "
+      "or 'spring'."
     )
 
 
@@ -179,9 +216,22 @@ def _contact_phase_reward(
         "gravity": GRAVITY,
       },
     )
+  elif trajectory == "spring":
+    return RewardTermCfg(
+      func=diogenes_mdp.foot_contact_phase_spring,
+      weight=weights.contact_phase_spring,
+      params={
+        "sensor_name": FOOT_CONTACT_SENSOR,
+        "traj_min": TRAJ_MIN,
+        "traj_max": TRAJ_MAX,
+        "traj_transition": TRAJ_TRANSITION,
+        "gravity": GRAVITY,
+      },
+    )
   else:
     raise ValueError(
-      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola' or 'sine'."
+      f"Unknown trajectory {trajectory!r}; expected 'dual_parabola', 'sine' "
+      "or 'spring'."
     )
 
 
@@ -209,7 +259,10 @@ def _build_rewards(
       params={
         "asset_cfg": calf_body_cfg(),
         "ref_xy": diogenes_mdp.DEFAULT_FOOT_REF_XY,
-        "std": 0.05,
+        # Foot wanders ~0.10 m env-local through the hop (measured rollout), so a
+        # 0.10 m Gaussian keeps the term live (exp(-1) at typical error) instead
+        # of underflowing as the old 0.05 m band did.
+        "std": 0.10,
         "foot_offset_b": diogenes_mdp.FOOT_OFFSET_B,
       },
     ),

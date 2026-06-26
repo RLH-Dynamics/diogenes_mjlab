@@ -48,6 +48,8 @@ def test_tasks_registered() -> None:
   ("dual_parabola", True),
   ("sine", False),
   ("sine", True),
+  ("spring", False),
+  ("spring", True),
 ])
 def test_env_cfg_builds(trajectory: str, play: bool) -> None:
   """diogenes_env_cfg must build without error for every (trajectory, play) combo."""
@@ -90,8 +92,12 @@ def test_env_cfg_builds(trajectory: str, play: bool) -> None:
   assert "slider_vel" in critic_terms, "slider_vel missing from critic group"
 
   # Phase clock must be in both groups and have the correct period.
-  from diogenes_mjlab.env_cfgs import TRAJ_T, SINE_PERIOD
-  expected_period = TRAJ_T if trajectory == "dual_parabola" else SINE_PERIOD
+  from diogenes_mjlab.env_cfgs import TRAJ_T, SPRING_T, SINE_PERIOD
+  expected_period = {
+    "dual_parabola": TRAJ_T,
+    "spring": SPRING_T,
+    "sine": SINE_PERIOD,
+  }[trajectory]
 
   actor_phase = obs["actor"].terms.get("phase_clock")
   assert actor_phase is not None, "phase_clock missing from actor group"

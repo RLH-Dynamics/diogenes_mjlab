@@ -34,6 +34,10 @@ from .trajectories import (  # noqa: F401, E402
   dual_parabola_reference,
   dual_parabola_velocity,
   dual_parabola_acceleration,
+  spring_timing,
+  spring_reference,
+  spring_velocity,
+  spring_acceleration,
 )
 
 # ---------------------------------------------------------------------------
@@ -58,10 +62,14 @@ from .rewards import (  # noqa: F401, E402
   foot_slip,
   foot_contact_required,
   foot_contact_phase_dual_parabola,
+  foot_contact_phase_spring,
   is_specific_termination,
   slider_dual_parabola_tracking,
   slider_dual_parabola_velocity_tracking,
   slider_dual_parabola_acceleration_tracking,
+  slider_spring_tracking,
+  slider_spring_velocity_tracking,
+  slider_spring_acceleration_tracking,
   slider_sinusoid_tracking,
   slider_sinusoid_velocity_tracking,
   slider_sinusoid_acceleration_tracking,
@@ -74,6 +82,7 @@ from .rewards import (  # noqa: F401, E402
 from .terminations import (  # noqa: F401, E402
   joint_at_limit,
   foot_contact_phase_wrong_dual_parabola,
+  foot_contact_phase_wrong_spring,
   foot_not_in_contact,
 )
 
