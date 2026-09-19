@@ -31,7 +31,7 @@ GRAVITY: float = 9.81
 #   TRAJ_MIN        : bottom of the motion (dual-parabola recovery dip; trough).
 #   TRAJ_TRANSITION : (dual-parabola only) height where flight and recovery meet.
 # ---------------------------------------------------------------------------
-TRAJ_MAX: float = 0.45
+TRAJ_MAX: float = 0.30
 TRAJ_MIN: float = 0.05
 TRAJ_TRANSITION: float = 0.15
 

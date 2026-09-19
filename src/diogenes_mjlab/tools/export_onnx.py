@@ -16,8 +16,11 @@ from mjlab.tasks.registry import load_env_cfg, load_rl_cfg, load_runner_cls
 import mjlab.tasks            # noqa: F401  (populate registry)
 import diogenes_mjlab          # noqa: F401  <-- adjust to your package import name
 
-TASK_ID = "Diogenes-Flat-Sine"
 CKPT    = sys.argv[1] if len(sys.argv) > 1 else "logs/rsl_rl/diogenes/<run>/model_<N>.pt"
+# Task whose env layout/metadata the export must match. MUST be the trajectory the
+# checkpoint was trained on (else the baked metadata / phase period are wrong).
+# Pass as the 2nd CLI arg; defaults to the dual-parabola task.
+TASK_ID = sys.argv[2] if len(sys.argv) > 2 else "Diogenes-Flat"
 
 
 def main():

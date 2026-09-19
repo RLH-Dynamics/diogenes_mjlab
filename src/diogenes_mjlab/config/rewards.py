@@ -69,7 +69,7 @@ class RewardWeights:
 
   # Energy / torque / smoothness penalties
   electrical_power: float = -0.0005
-  torque: float = -0.002
+  torque: float = -0.008
   action_rate: float = -4.0
   action_acc: float = -0.0
   joint_acc: float = -0.0

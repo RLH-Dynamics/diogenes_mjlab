@@ -1,0 +1,798 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/059a4c781b4bb4d9222a411d/w/7cc560eda411ee8274e44061/e/757fbd1d6b42a134fe467732 -->
+<mujoco model="harold_biped">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <default>
+    <default class="harold_biped">
+      <!-- armature / frictionloss replace the onshape-to-robot placeholders (0.005 / 0.1)
+           with the midpoints of the leg's validated DR ranges (config/domain_rand.py:
+           joint_armature 0.016-0.024 kg·m², joint_friction 0.15-1.60 N·m), so runs
+           with DR disabled (e.g. play) sit at the centre of what training saw. -->
+      <joint frictionloss="0.9" armature="0.02"/>
+      <position kp="50" dampratio="1"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <!-- Collision geoms are DISABLED by default (contype/conaffinity = 0).
+           Only the calves (feet) should contact the floor. Joint limits keep the
+           legs from ever touching each other, so no self-collision is needed, and
+           leaving the ~200 fastener/electronics geoms collidable causes hundreds of
+           constraint rows per env (nefc overflow). Same scheme as the test leg. -->
+      <default class="collision">
+        <geom group="3" contype="0" conaffinity="0"/>
+      </default>
+      <!-- Foot collision: floor only. Collision happens iff
+           (contype_a & conaffinity_b) | (contype_b & conaffinity_a) != 0.
+           terrain = contype 1 / conaffinity 1; foot = contype 2 / conaffinity 1
+           -> matches the terrain but not the other foot (2 & 1 == 0). -->
+      <default class="foot">
+        <geom group="3" contype="2" conaffinity="1"/>
+      </default>
+    </default>
+  </default>
+  <worldbody>
+    <!-- Link body_assy -->
+    <body name="body_assy" pos="0 0 0" quat="1 0 0 0" childclass="harold_biped">
+      <freejoint name="body_assy_freejoint"/>
+      <inertial pos="0.00010111 0.0313438 0.0649694" mass="3.90711" fullinertia="0.0303652 0.0413153 0.0314036 1.04027e-05 -5.38092e-05 -0.0101314"/>
+      <!-- Part m4x8_ss_shcs__configuration_default -->
+      <geom type="mesh" class="visual" pos="0.0417299 0.02275 0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0417299 0.02275 0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut -->
+      <geom type="mesh" class="visual" pos="-0.09273 0.06685 0.134199" quat="0 0.707107 0.707107 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.09273 0.06685 0.134199" quat="0 0.707107 0.707107 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <!-- Part m3x10_ss_shcs__configuration_m3x10_ss_shcs -->
+      <geom type="mesh" class="visual" pos="-0.0672384 -0.025 0.0722586" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.0672384 -0.025 0.0722586" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_2 -->
+      <geom type="mesh" class="visual" pos="0.0682485 -0.02275 -0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0682485 -0.02275 -0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default -->
+      <geom type="mesh" class="visual" pos="0.0345 0.02435 0.121699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0345 0.02435 0.121699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_3 -->
+      <geom type="mesh" class="visual" pos="0.0682485 0.02275 -0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0682485 0.02275 -0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs -->
+      <geom type="mesh" class="visual" pos="-0.07963 0.06685 0.134199" quat="0.707107 -0 0.707107 -0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.07963 0.06685 0.134199" quat="0.707107 -0 0.707107 -0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_4 -->
+      <geom type="mesh" class="visual" pos="-0.0417299 -0.02275 -0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0417299 -0.02275 -0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2x12_ss_shcs__configuration_m2x12_ss_shcs -->
+      <geom type="mesh" class="visual" pos="-0.056045 0.01554 0.103144" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.056045 0.01554 0.103144" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <!-- Part m3x10_ss_shcs__configuration_m3x10_ss_shcs_2 -->
+      <geom type="mesh" class="visual" pos="0.0672384 -0.025 0.0722586" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="0.0672384 -0.025 0.0722586" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_2 -->
+      <geom type="mesh" class="visual" pos="0.01016 0.02525 0.0855786" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.01016 0.02525 0.0855786" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_3 -->
+      <geom type="mesh" class="visual" pos="-0.0235 0.02435 0.121699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0235 0.02435 0.121699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part nf_a4x20_fan_screw -->
+      <geom type="mesh" class="visual" pos="0.09638 -0.02 0.151964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="0.09638 -0.02 0.151964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_2 -->
+      <geom type="mesh" class="visual" pos="0.07963 0.06685 0.134199" quat="0.707107 0 -0.707107 0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="0.07963 0.06685 0.134199" quat="0.707107 0 -0.707107 0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut_2 -->
+      <geom type="mesh" class="visual" pos="-0.09273 0.09682 0.134199" quat="0 0.707107 0.707107 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.09273 0.09682 0.134199" quat="0 0.707107 0.707107 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <!-- Part m2x12_ss_shcs__configuration_m2x12_ss_shcs_2 -->
+      <geom type="mesh" class="visual" pos="-0.033755 0.01554 0.150054" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.033755 0.01554 0.150054" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <!-- Part m2x12_ss_shcs__configuration_m2x12_ss_shcs_3 -->
+      <geom type="mesh" class="visual" pos="-0.056045 0.01554 0.150054" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.056045 0.01554 0.150054" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_5 -->
+      <geom type="mesh" class="visual" pos="0.0417299 -0.02275 -0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0417299 -0.02275 -0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2_ss_hex_nut__configuration_m2_ss_hex_nut -->
+      <geom type="mesh" class="visual" pos="-0.033755 0.0272 0.150054" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.033755 0.0272 0.150054" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_6 -->
+      <geom type="mesh" class="visual" pos="-0.0682485 0.02275 0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0682485 0.02275 0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_7 -->
+      <geom type="mesh" class="visual" pos="0.0682485 0.02275 0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0682485 0.02275 0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m3x10_ss_shcs__configuration_m3x10_ss_shcs_3 -->
+      <geom type="mesh" class="visual" pos="0.082 -0.025 0.172199" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="0.082 -0.025 0.172199" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <!-- Part m2_5x10_ss_shcs__configuration_m2_5x10 -->
+      <geom type="mesh" class="visual" pos="-0.01016 0.0154 0.0855786" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <geom type="mesh" class="collision" pos="-0.01016 0.0154 0.0855786" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <!-- Part nf_a4x20_fan_screw_2 -->
+      <geom type="mesh" class="visual" pos="0.09638 -0.02 0.119964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="0.09638 -0.02 0.119964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut -->
+      <geom type="mesh" class="visual" pos="0.082 -0.01472 0.172199" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="0.082 -0.01472 0.172199" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <!-- Part m2_5x25_shcs__configuration_m2_5x25 -->
+      <geom type="mesh" class="visual" pos="-0.0235 -0.00108 0.170699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <geom type="mesh" class="collision" pos="-0.0235 -0.00108 0.170699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_3 -->
+      <geom type="mesh" class="visual" pos="0.07963 0.09682 0.134199" quat="0.707107 0 -0.707107 0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="0.07963 0.09682 0.134199" quat="0.707107 0 -0.707107 0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <!-- Part nf_a4x20_fan_screw_3 -->
+      <geom type="mesh" class="visual" pos="0.09638 0.012 0.151964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="0.09638 0.012 0.151964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m2_ss_hex_nut__configuration_m2_ss_hex_nut_2 -->
+      <geom type="mesh" class="visual" pos="-0.056045 0.0272 0.150054" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.056045 0.0272 0.150054" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <!-- Part nf_a4x20_fan_screw_4 -->
+      <geom type="mesh" class="visual" pos="-0.09638 0.012 0.119964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="-0.09638 0.012 0.119964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m2_ss_hex_nut__configuration_m2_ss_hex_nut_3 -->
+      <geom type="mesh" class="visual" pos="-0.033755 0.0272 0.103144" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.033755 0.0272 0.103144" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_8 -->
+      <geom type="mesh" class="visual" pos="-0.0417299 -0.02275 0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0417299 -0.02275 0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2_ss_hex_nut__configuration_m2_ss_hex_nut_4 -->
+      <geom type="mesh" class="visual" pos="-0.056045 0.0272 0.103144" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.056045 0.0272 0.103144" quat="1 0 0 0" mesh="m2_ss_hex_nut__configuration_m2_ss_hex_nut" material="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_4 -->
+      <geom type="mesh" class="visual" pos="-0.01016 0.02525 0.0677986" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.01016 0.02525 0.0677986" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m2_5x25_shcs__configuration_m2_5x25_2 -->
+      <geom type="mesh" class="visual" pos="-0.0235 -0.00108 0.121699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <geom type="mesh" class="collision" pos="-0.0235 -0.00108 0.121699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_4 -->
+      <geom type="mesh" class="visual" pos="-0.07963 0.09682 0.134199" quat="0.707107 -0 0.707107 -0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.07963 0.09682 0.134199" quat="0.707107 -0 0.707107 -0" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+      <!-- Part m2_5x10_ss_shcs__configuration_m2_5x10_2 -->
+      <geom type="mesh" class="visual" pos="0.01016 0.0154 0.0855786" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <geom type="mesh" class="collision" pos="0.01016 0.0154 0.0855786" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_5 -->
+      <geom type="mesh" class="visual" pos="0.0345 0.02435 0.170699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0345 0.02435 0.170699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part nf_a4x20_fan_screw_5 -->
+      <geom type="mesh" class="visual" pos="-0.09638 -0.02 0.119964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="-0.09638 -0.02 0.119964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part nf_a4x20_fan_screw_6 -->
+      <geom type="mesh" class="visual" pos="-0.09638 0.012 0.151964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="-0.09638 0.012 0.151964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m2_5x10_ss_shcs__configuration_m2_5x10_3 -->
+      <geom type="mesh" class="visual" pos="-0.01016 0.0154 0.0677986" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <geom type="mesh" class="collision" pos="-0.01016 0.0154 0.0677986" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <!-- Part nf_a4x20_fan_screw_7 -->
+      <geom type="mesh" class="visual" pos="-0.09638 -0.02 0.151964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="-0.09638 -0.02 0.151964" quat="0 -0.707107 0 0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m3x10_ss_shcs__configuration_m3x10_ss_shcs_4 -->
+      <geom type="mesh" class="visual" pos="-0.082 -0.025 0.172199" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.082 -0.025 0.172199" quat="0.707107 0.707107 -0 -0" mesh="m3x10_ss_shcs__configuration_m3x10_ss_shcs" material="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material"/>
+      <!-- Part rs03 -->
+      <geom type="mesh" class="visual" pos="0.087 0.02215 -0" quat="0 0 0 1" mesh="rs03" material="rs03_material"/>
+      <geom type="mesh" class="collision" pos="0.087 0.02215 -0" quat="0 0 0 1" mesh="rs03" material="rs03_material"/>
+      <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut_3 -->
+      <geom type="mesh" class="visual" pos="0.09273 0.09682 0.134199" quat="0.707107 0 0 0.707107" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="0.09273 0.09682 0.134199" quat="0.707107 0 0 0.707107" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <!-- Part m2_5x10_ss_shcs__configuration_m2_5x10_4 -->
+      <geom type="mesh" class="visual" pos="0.01016 0.0154 0.0677986" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <geom type="mesh" class="collision" pos="0.01016 0.0154 0.0677986" quat="0.707107 0.707107 -0 -0" mesh="m2_5x10_ss_shcs__configuration_m2_5x10" material="m2_5x10_ss_shcs__configuration_m2_5x10_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_9 -->
+      <geom type="mesh" class="visual" pos="0.0682485 -0.02275 0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0682485 -0.02275 0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_2 -->
+      <geom type="mesh" class="visual" pos="-0.0672384 -0.01472 0.0722586" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.0672384 -0.01472 0.0722586" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <!-- Part m2_5x25_shcs__configuration_m2_5x25_3 -->
+      <geom type="mesh" class="visual" pos="0.0345 -0.00108 0.121699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <geom type="mesh" class="collision" pos="0.0345 -0.00108 0.121699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_10 -->
+      <geom type="mesh" class="visual" pos="-0.0682485 -0.02275 -0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0682485 -0.02275 -0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part nf_a4x20_fan_screw_8 -->
+      <geom type="mesh" class="visual" pos="0.09638 0.012 0.119964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <geom type="mesh" class="collision" pos="0.09638 0.012 0.119964" quat="0 -0.707107 0 -0.707107" mesh="nf_a4x20_fan_screw" material="nf_a4x20_fan_screw_material"/>
+      <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_3 -->
+      <geom type="mesh" class="visual" pos="0.0672384 -0.01472 0.0722586" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="0.0672384 -0.01472 0.0722586" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <!-- Part rs03_2 -->
+      <geom type="mesh" class="visual" pos="-0.087 0.02215 0" quat="0 0 0 -1" mesh="rs03" material="rs03_material"/>
+      <geom type="mesh" class="collision" pos="-0.087 0.02215 0" quat="0 0 0 -1" mesh="rs03" material="rs03_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_11 -->
+      <geom type="mesh" class="visual" pos="-0.0682485 0.02275 -0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0682485 0.02275 -0.0452701" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_12 -->
+      <geom type="mesh" class="visual" pos="-0.0682485 -0.02275 0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0682485 -0.02275 0.0452701" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_6 -->
+      <geom type="mesh" class="visual" pos="0.01016 0.02525 0.0677986" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.01016 0.02525 0.0677986" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_13 -->
+      <geom type="mesh" class="visual" pos="0.0417299 0.02275 -0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0417299 0.02275 -0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_14 -->
+      <geom type="mesh" class="visual" pos="0.0417299 -0.02275 0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="0.0417299 -0.02275 0.0187515" quat="0.707107 0.707107 -0 -0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_7 -->
+      <geom type="mesh" class="visual" pos="-0.01016 0.02525 0.0855786" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.01016 0.02525 0.0855786" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_15 -->
+      <geom type="mesh" class="visual" pos="-0.0417299 0.02275 -0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0417299 0.02275 -0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4x8_ss_shcs__configuration_default_16 -->
+      <geom type="mesh" class="visual" pos="-0.0417299 0.02275 0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0417299 0.02275 0.0187515" quat="0.707107 -0.707107 0 0" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+      <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut_4 -->
+      <geom type="mesh" class="visual" pos="0.09273 0.06685 0.134199" quat="0.707107 0 0 0.707107" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="0.09273 0.06685 0.134199" quat="0.707107 0 0 0.707107" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+      <!-- Part m2_5_ss_hex_nut__configuration_default_8 -->
+      <geom type="mesh" class="visual" pos="-0.0235 0.02435 0.170699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <geom type="mesh" class="collision" pos="-0.0235 0.02435 0.170699" quat="1 0 0 0" mesh="m2_5_ss_hex_nut__configuration_default" material="m2_5_ss_hex_nut__configuration_default_material"/>
+      <!-- Part m2_5x25_shcs__configuration_m2_5x25_4 -->
+      <geom type="mesh" class="visual" pos="0.0345 -0.00108 0.170699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <geom type="mesh" class="collision" pos="0.0345 -0.00108 0.170699" quat="0.707107 0.707107 -0 -0" mesh="m2_5x25_shcs__configuration_m2_5x25" material="m2_5x25_shcs__configuration_m2_5x25_material"/>
+      <!-- Part m2x12_ss_shcs__configuration_m2x12_ss_shcs_4 -->
+      <geom type="mesh" class="visual" pos="-0.033755 0.01554 0.103144" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <geom type="mesh" class="collision" pos="-0.033755 0.01554 0.103144" quat="0.707107 0.707107 -0 -0" mesh="m2x12_ss_shcs__configuration_m2x12_ss_shcs" material="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material"/>
+      <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_4 -->
+      <geom type="mesh" class="visual" pos="-0.082 -0.01472 0.172199" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <geom type="mesh" class="collision" pos="-0.082 -0.01472 0.172199" quat="1 0 0 0" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+      <!-- Part face_plate -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="face_plate" material="face_plate_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="face_plate" material="face_plate_material"/>
+      <!-- Part nf_a4x20 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="nf_a4x20" material="nf_a4x20_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="nf_a4x20" material="nf_a4x20_material"/>
+      <!-- Part pi_hat_spacer -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer" material="pi_hat_spacer_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer" material="pi_hat_spacer_material"/>
+      <!-- Part body -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="body" material="body_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="body" material="body_material"/>
+      <!-- Part regulator_mount -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="regulator_mount" material="regulator_mount_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="regulator_mount" material="regulator_mount_material"/>
+      <!-- Part pi_hat_spacer_2 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__2" material="pi_hat_spacer__2_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__2" material="pi_hat_spacer__2_material"/>
+      <!-- Part bno085_imu -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="bno085_imu" material="bno085_imu_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="bno085_imu" material="bno085_imu_material"/>
+      <!-- Part regulator -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="regulator" material="regulator_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="regulator" material="regulator_material"/>
+      <!-- Part battery_mount -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="battery_mount" material="battery_mount_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="battery_mount" material="battery_mount_material"/>
+      <!-- Part pi_hat -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat" material="pi_hat_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat" material="pi_hat_material"/>
+      <!-- Part pi_5 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_5" material="pi_5_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_5" material="pi_5_material"/>
+      <!-- Part pi_mount -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_mount" material="pi_mount_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_mount" material="pi_mount_material"/>
+      <!-- Part battery -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="battery" material="battery_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="battery" material="battery_material"/>
+      <!-- Part battery_2 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="battery__2" material="battery__2_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="battery__2" material="battery__2_material"/>
+      <!-- Part pi_hat_spacer_3 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__3" material="pi_hat_spacer__3_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__3" material="pi_hat_spacer__3_material"/>
+      <!-- Part battery_mount_2 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="battery_mount__2" material="battery_mount__2_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="battery_mount__2" material="battery_mount__2_material"/>
+      <!-- Part nf_a4x20_2 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="nf_a4x20__2" material="nf_a4x20__2_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="nf_a4x20__2" material="nf_a4x20__2_material"/>
+      <!-- Part pi_hat_spacer_4 -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__4" material="pi_hat_spacer__4_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="pi_hat_spacer__4" material="pi_hat_spacer__4_material"/>
+      <!-- Part bno085_chip -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="bno085_chip" material="bno085_chip_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="bno085_chip" material="bno085_chip_material"/>
+      <!-- Part imu_mount -->
+      <geom type="mesh" class="visual" pos="0 0 0" quat="1 0 0 0" mesh="imu_mount" material="imu_mount_material"/>
+      <geom type="mesh" class="collision" pos="0 0 0" quat="1 0 0 0" mesh="imu_mount" material="imu_mount_material"/>
+      <!-- Frame bno085 -->
+      <site group="3" name="bno085" pos="-0 0.0149 0.0775286" quat="0.707107 0.707107 -0 -0"/>
+      <!-- Link l_hip_assy -->
+      <body name="l_hip_assy" pos="0.087 0.02215 -0" quat="0 -0 -0.707107 0.707107">
+        <!-- Joint from body_assy to l_hip_assy -->
+        <joint axis="0 0 1" name="left_hip" type="hinge" range="-0.0872664625997147 0.78539816339745"/>
+        <inertial pos="-0.0491289 4.978e-09 -0.0773916" mass="1.12787" fullinertia="0.00186939 0.00155915 0.00110061 -3.01e-10 -0.000211082 -3.74e-10"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_17 -->
+        <geom type="mesh" class="visual" pos="-0.0235 0.0187515 -0.0432299" quat="0.5 -0.5 0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.0235 0.0187515 -0.0432299" quat="0.5 -0.5 0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs -->
+        <geom type="mesh" class="visual" pos="-0.0131463 0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0.0131463 0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_2 -->
+        <geom type="mesh" class="visual" pos="0.0131463 -0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0.0131463 -0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_18 -->
+        <geom type="mesh" class="visual" pos="-0.0235 -0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.0235 -0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_3 -->
+        <geom type="mesh" class="visual" pos="-0.0131463 -0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0.0131463 -0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part rs03_3 -->
+        <geom type="mesh" class="visual" pos="-0.025 -0 -0.0885" quat="0.5 0.5 -0.5 0.5" mesh="rs03" material="rs03_material"/>
+        <geom type="mesh" class="collision" pos="-0.025 -0 -0.0885" quat="0.5 0.5 -0.5 0.5" mesh="rs03" material="rs03_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_19 -->
+        <geom type="mesh" class="visual" pos="-0.0235 -0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.0235 -0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_4 -->
+        <geom type="mesh" class="visual" pos="-0 -0.01518 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0 -0.01518 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_20 -->
+        <geom type="mesh" class="visual" pos="-0.071 -0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.071 -0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_5 -->
+        <geom type="mesh" class="visual" pos="0.0131463 0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0.0131463 0.00759 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_21 -->
+        <geom type="mesh" class="visual" pos="-0.071 -0.0452701 -0.0697485" quat="0.5 0.5 -0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.071 -0.0452701 -0.0697485" quat="0.5 0.5 -0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_6 -->
+        <geom type="mesh" class="visual" pos="-0 0.01518 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0 0.01518 -0.007" quat="0 -0 -1 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_22 -->
+        <geom type="mesh" class="visual" pos="-0.0235 0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.0235 0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part l_hip -->
+        <geom type="mesh" class="visual" pos="-0 -0 -0.0325" quat="0 0 -0.707107 0.707107" mesh="l_hip" material="l_hip_material"/>
+        <geom type="mesh" class="collision" pos="-0 -0 -0.0325" quat="0 0 -0.707107 0.707107" mesh="l_hip" material="l_hip_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_23 -->
+        <geom type="mesh" class="visual" pos="-0.071 0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.071 0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_24 -->
+        <geom type="mesh" class="visual" pos="-0.071 0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="-0.071 0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Link l_thigh_assy -->
+        <body name="l_thigh_assy" pos="-0.025 -0 -0.0885" quat="0.707107 -0 -0.707107 0">
+          <!-- Joint from l_hip_assy to l_thigh_assy -->
+          <joint axis="0 0 1" name="left_thigh" type="hinge" range="-0.523598775598299 1.0471975511965974"/>
+          <inertial pos="-0.0137655 0.0191856 -0.0606207" mass="1.2256" fullinertia="0.00423288 0.00274544 0.00532802 0.00186269 0.000567694 -0.000794905"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs -->
+          <geom type="mesh" class="visual" pos="-0.0498375 0.0760772 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0498375 0.0760772 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_2 -->
+          <geom type="mesh" class="visual" pos="-0.026636 0.0538812 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.026636 0.0538812 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_5 -->
+          <geom type="mesh" class="visual" pos="-0.0933629 0.0847093 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0933629 0.0847093 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_5 -->
+          <geom type="mesh" class="visual" pos="-0.0147346 -0.0467321 -0.0365" quat="0.5 -0 -0 0.866025" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0147346 -0.0467321 -0.0365" quat="0.5 -0 -0 0.866025" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_6 -->
+          <geom type="mesh" class="visual" pos="-0.026636 0.0538812 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.026636 0.0538812 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m6_ss_hex_nut__configuration_m6_ss_hex_nut -->
+          <geom type="mesh" class="visual" pos="-0.1 0.173205 -0.05772" quat="0.688008 -0.688008 -0.163234 0.163234" mesh="m6_ss_hex_nut__configuration_m6_ss_hex_nut" material="m6_ss_hex_nut__configuration_m6_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.1 0.173205 -0.05772" quat="0.688008 -0.688008 -0.163234 0.163234" mesh="m6_ss_hex_nut__configuration_m6_ss_hex_nut" material="m6_ss_hex_nut__configuration_m6_ss_hex_nut_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_7 -->
+          <geom type="mesh" class="visual" pos="-0.01518 0 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.01518 0 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_8 -->
+          <geom type="mesh" class="visual" pos="0.00759 0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.00759 0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_6 -->
+          <geom type="mesh" class="visual" pos="-0.0434635 -0.0226257 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0434635 -0.0226257 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_7 -->
+          <geom type="mesh" class="visual" pos="-0.112104 0.117169 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.112104 0.117169 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_3 -->
+          <geom type="mesh" class="visual" pos="-0.0819663 0.138612 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0819663 0.138612 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part l_thigh___l -->
+          <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="l_thigh___l" material="l_thigh___l_material"/>
+          <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="l_thigh___l" material="l_thigh___l_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_7 -->
+          <geom type="mesh" class="visual" pos="0.0467321 -0.0147346 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0467321 -0.0147346 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_9 -->
+          <geom type="mesh" class="visual" pos="0.01518 0 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.01518 0 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_4 -->
+          <geom type="mesh" class="visual" pos="-0.0761736 0.0549366 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0761736 0.0549366 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_8 -->
+          <geom type="mesh" class="visual" pos="-0.0761736 0.0549366 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0761736 0.0549366 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_9 -->
+          <geom type="mesh" class="visual" pos="-0.058678 0.0246333 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.058678 0.0246333 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part knee_spacer -->
+          <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="knee_spacer" material="knee_spacer_material"/>
+          <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="knee_spacer" material="knee_spacer_material"/>
+          <!-- Part l_thigh___r -->
+          <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="l_thigh___r" material="l_thigh___r_material"/>
+          <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="l_thigh___r" material="l_thigh___r_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_10 -->
+          <geom type="mesh" class="visual" pos="-0.0498375 0.0760772 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0498375 0.0760772 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_11 -->
+          <geom type="mesh" class="visual" pos="-0.0819663 0.138612 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0819663 0.138612 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_8 -->
+          <geom type="mesh" class="visual" pos="0.0147346 0.0467321 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0147346 0.0467321 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_9 -->
+          <geom type="mesh" class="visual" pos="0.0434635 0.0226257 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0434635 0.0226257 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_5 -->
+          <geom type="mesh" class="visual" pos="-0.112104 0.117169 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.112104 0.117169 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_6 -->
+          <geom type="mesh" class="visual" pos="-0.0933629 0.0847093 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0933629 0.0847093 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m4x8_ss_shcs__configuration_default_25 -->
+          <geom type="mesh" class="visual" pos="-0.0467321 0.0147346 -0.0435" quat="0.866025 0 -0 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <geom type="mesh" class="collision" pos="-0.0467321 0.0147346 -0.0435" quat="0.866025 0 -0 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_7 -->
+          <geom type="mesh" class="visual" pos="-0.0697887 0.107111 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0697887 0.107111 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_10 -->
+          <geom type="mesh" class="visual" pos="-0.00759 -0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.00759 -0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_11 -->
+          <geom type="mesh" class="visual" pos="-0.00759 0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.00759 0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m6x55_ss_shcs__configuration_m6x55_ss_shcs -->
+          <geom type="mesh" class="visual" pos="-0.1 0.173205 -0.003" quat="0.866025 0 -0 -0.5" mesh="m6x55_ss_shcs__configuration_m6x55_ss_shcs" material="m6x55_ss_shcs__configuration_m6x55_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.1 0.173205 -0.003" quat="0.866025 0 -0 -0.5" mesh="m6x55_ss_shcs__configuration_m6x55_ss_shcs" material="m6x55_ss_shcs__configuration_m6x55_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_12 -->
+          <geom type="mesh" class="visual" pos="0.00759 -0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.00759 -0.0131463 -0.0065" quat="0 -0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x8_ss_shcs__configuration_default_26 -->
+          <geom type="mesh" class="visual" pos="-0.0226257 0.0434635 -0.0435" quat="0.866025 0 -0 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <geom type="mesh" class="collision" pos="-0.0226257 0.0434635 -0.0435" quat="0.866025 0 -0 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <!-- Part rs03_4 -->
+          <geom type="mesh" class="visual" pos="-0 -0 -0.045" quat="0.0308436 -0.0308436 0.706434 -0.706434" mesh="rs03" material="rs03_material"/>
+          <geom type="mesh" class="collision" pos="-0 -0 -0.045" quat="0.0308436 -0.0308436 0.706434 -0.706434" mesh="rs03" material="rs03_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_12 -->
+          <geom type="mesh" class="visual" pos="-0.0697887 0.107111 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0697887 0.107111 -0.04738" quat="0.683013 -0.683013 0.183013 -0.183013" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_8 -->
+          <geom type="mesh" class="visual" pos="-0.058678 0.0246333 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.058678 0.0246333 -0.0395" quat="0.866025 0 -0 -0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part knee_spacer_2 -->
+          <geom type="mesh" class="visual" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+          <geom type="mesh" class="collision" pos="0 0 -0.0275" quat="0.353553 0.612372 -0.353553 0.612372" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_10 -->
+          <geom type="mesh" class="visual" pos="0.0226257 -0.0434635 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0226257 -0.0434635 -0.0365" quat="0.866025 0 -0 -0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Link l_calf_assy -->
+          <body name="l_calf_assy" pos="-0.1 0.173205 -0.0135" quat="0.258819 0 0 -0.965926">
+            <!-- Joint from l_thigh_assy to l_calf_assy -->
+            <joint axis="0 0 1" name="left_calf" type="hinge" range="-1.3089969389957365 0.26179938779916"/>
+            <inertial pos="-0.083713 -0.0461134 -0.0139864" mass="0.15874" fullinertia="0.000316149 0.000955526 0.00124352 -0.000516349 -2.06837e-07 -1.1514e-07"/>
+            <!-- Part 606_2rs -->
+            <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="606_2rs" material="606_2rs_material"/>
+            <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="606_2rs" material="606_2rs_material"/>
+            <!-- Part m4x20_ss_shcs__configuration_m4x20_ss_shcs -->
+            <geom type="mesh" class="visual" pos="0.0259808 0.015 -0.022" quat="0 0.965926 0.258819 0" mesh="m4x20_ss_shcs__configuration_m4x20_ss_shcs" material="m4x20_ss_shcs__configuration_m4x20_ss_shcs_material"/>
+            <geom type="mesh" class="collision" pos="0.0259808 0.015 -0.022" quat="0 0.965926 0.258819 0" mesh="m4x20_ss_shcs__configuration_m4x20_ss_shcs" material="m4x20_ss_shcs__configuration_m4x20_ss_shcs_material"/>
+            <!-- Part 606_2rs_2 -->
+            <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="606_2rs__2" material="606_2rs__2_material"/>
+            <geom type="mesh" class="collision" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="606_2rs__2" material="606_2rs__2_material"/>
+            <!-- Part l_calf (the foot end that contacts the floor) -->
+            <geom type="mesh" class="visual" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="l_calf" material="l_calf_material"/>
+            <geom type="mesh" name="left_foot" class="foot" pos="-0 0 -0.014" quat="0.683013 -0.183013 0.683013 0.183013" mesh="l_calf" material="l_calf_material"/>
+            <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut_5 -->
+            <geom type="mesh" class="visual" pos="0.0259808 0.015 -0.0021" quat="0.353553 0.353553 0.612372 0.612372" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+            <geom type="mesh" class="collision" pos="0.0259808 0.015 -0.0021" quat="0.353553 0.353553 0.612372 0.612372" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+            <!-- Frame left_foot -->
+            <site group="3" name="left_foot" pos="-0.216506 -0.125 -0.014" quat="0.683013 -0.183013 0.683013 0.183013"/>
+          </body>
+        </body>
+      </body>
+      <!-- Link r_hip_assy -->
+      <body name="r_hip_assy" pos="-0.087 0.02215 0" quat="0 0 0.707107 -0.707107">
+        <!-- Joint from body_assy to r_hip_assy -->
+        <joint axis="0 0 1" name="right_hip" type="hinge" range="-0.7853981633974483 0.08726646259971647"/>
+        <inertial pos="0.0491289 6.822e-09 -0.0773916" mass="1.12787" fullinertia="0.00186939 0.00155915 0.00110061 3.77e-10 0.000211082 -5.01e-10"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_13 -->
+        <geom type="mesh" class="visual" pos="0 -0.01518 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0 -0.01518 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_14 -->
+        <geom type="mesh" class="visual" pos="-0.0131463 0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0.0131463 0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_27 -->
+        <geom type="mesh" class="visual" pos="0.071 -0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.071 -0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_28 -->
+        <geom type="mesh" class="visual" pos="0.0235 -0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.0235 -0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_29 -->
+        <geom type="mesh" class="visual" pos="0.071 -0.0452701 -0.0697485" quat="0.5 -0.5 0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.071 -0.0452701 -0.0697485" quat="0.5 -0.5 0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part rs03_5 -->
+        <geom type="mesh" class="visual" pos="0.025 -0 -0.0885" quat="0.5 -0.5 -0.5 -0.5" mesh="rs03" material="rs03_material"/>
+        <geom type="mesh" class="collision" pos="0.025 -0 -0.0885" quat="0.5 -0.5 -0.5 -0.5" mesh="rs03" material="rs03_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_15 -->
+        <geom type="mesh" class="visual" pos="0.0131463 0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0.0131463 0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_16 -->
+        <geom type="mesh" class="visual" pos="0.0131463 -0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0.0131463 -0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_30 -->
+        <geom type="mesh" class="visual" pos="0.0235 0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.0235 0.0452701 -0.0697485" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_31 -->
+        <geom type="mesh" class="visual" pos="0.0235 0.0187515 -0.0432299" quat="0.5 0.5 -0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.0235 0.0187515 -0.0432299" quat="0.5 0.5 -0.5 -0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_32 -->
+        <geom type="mesh" class="visual" pos="0.071 0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.071 0.0187515 -0.0432299" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_33 -->
+        <geom type="mesh" class="visual" pos="0.0235 -0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.0235 -0.0187515 -0.0432299" quat="0.5 -0.5 -0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_17 -->
+        <geom type="mesh" class="visual" pos="0 0.01518 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="0 0.01518 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part r_hip -->
+        <geom type="mesh" class="visual" pos="0 -0 -0.0325" quat="0.707107 -0.707107 0 -0" mesh="r_hip" material="r_hip_material"/>
+        <geom type="mesh" class="collision" pos="0 -0 -0.0325" quat="0.707107 -0.707107 0 -0" mesh="r_hip" material="r_hip_material"/>
+        <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_18 -->
+        <geom type="mesh" class="visual" pos="-0.0131463 -0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <geom type="mesh" class="collision" pos="-0.0131463 -0.00759 -0.007" quat="0 -1 0 -0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+        <!-- Part m4x8_ss_shcs__configuration_default_34 -->
+        <geom type="mesh" class="visual" pos="0.071 0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <geom type="mesh" class="collision" pos="0.071 0.0452701 -0.0697485" quat="0.5 0.5 0.5 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+        <!-- Link r_thigh_assy -->
+        <body name="r_thigh_assy" pos="0.025 -0 -0.0885" quat="0 0.707107 0 0.707107">
+          <!-- Joint from r_hip_assy to r_thigh_assy -->
+          <joint axis="0 0 1" name="right_thigh" type="hinge" range="-1.0471975511965965 0.5235987755983"/>
+          <inertial pos="-0.0137654 -0.0191856 -0.0606207" mass="1.2256" fullinertia="0.00423288 0.00274544 0.00532801 -0.00186269 0.000567693 0.000794904"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_11 -->
+          <geom type="mesh" class="visual" pos="0.0467321 0.0147346 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0467321 0.0147346 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_9 -->
+          <geom type="mesh" class="visual" pos="-0.0697887 -0.107111 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0697887 -0.107111 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_13 -->
+          <geom type="mesh" class="visual" pos="-0.026636 -0.0538812 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.026636 -0.0538812 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part rs03_6 -->
+          <geom type="mesh" class="visual" pos="-4.84e-10 4.222e-09 -0.045" quat="0.0308436 -0.0308436 -0.706434 0.706434" mesh="rs03" material="rs03_material"/>
+          <geom type="mesh" class="collision" pos="-4.84e-10 4.222e-09 -0.045" quat="0.0308436 -0.0308436 -0.706434 0.706434" mesh="rs03" material="rs03_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_19 -->
+          <geom type="mesh" class="visual" pos="0.01518 4.222e-09 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.01518 4.222e-09 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_12 -->
+          <geom type="mesh" class="visual" pos="-0.0434635 0.0226257 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0434635 0.0226257 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_20 -->
+          <geom type="mesh" class="visual" pos="-0.00759 0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.00759 0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_10 -->
+          <geom type="mesh" class="visual" pos="-0.0819663 -0.138612 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0819663 -0.138612 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_11 -->
+          <geom type="mesh" class="visual" pos="-0.058678 -0.0246333 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.058678 -0.0246333 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_14 -->
+          <geom type="mesh" class="visual" pos="-0.0498375 -0.0760772 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0498375 -0.0760772 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_13 -->
+          <geom type="mesh" class="visual" pos="-0.0147346 0.0467321 -0.0365" quat="0.5 0 0 -0.866025" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0147346 0.0467321 -0.0365" quat="0.5 0 0 -0.866025" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m4x8_ss_shcs__configuration_default_35 -->
+          <geom type="mesh" class="visual" pos="-0.0467321 -0.0147346 -0.0435" quat="0.866025 0 -0 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <geom type="mesh" class="collision" pos="-0.0467321 -0.0147346 -0.0435" quat="0.866025 0 -0 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_21 -->
+          <geom type="mesh" class="visual" pos="0.00759 -0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.00759 -0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_15 -->
+          <geom type="mesh" class="visual" pos="-0.0819663 -0.138612 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0819663 -0.138612 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_12 -->
+          <geom type="mesh" class="visual" pos="-0.0761736 -0.0549366 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0761736 -0.0549366 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_22 -->
+          <geom type="mesh" class="visual" pos="-0.00759 -0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.00759 -0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_13 -->
+          <geom type="mesh" class="visual" pos="-0.112104 -0.117169 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.112104 -0.117169 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m6x55_ss_shcs__configuration_m6x55_ss_shcs_2 -->
+          <geom type="mesh" class="visual" pos="-0.1 -0.173205 -0.003" quat="0.866025 0 -0 0.5" mesh="m6x55_ss_shcs__configuration_m6x55_ss_shcs" material="m6x55_ss_shcs__configuration_m6x55_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.1 -0.173205 -0.003" quat="0.866025 0 -0 0.5" mesh="m6x55_ss_shcs__configuration_m6x55_ss_shcs" material="m6x55_ss_shcs__configuration_m6x55_ss_shcs_material"/>
+          <!-- Part r_thigh___l -->
+          <geom type="mesh" class="visual" pos="-4.84e-10 4.222e-09 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="r_thigh___l" material="r_thigh___l_material"/>
+          <geom type="mesh" class="collision" pos="-4.84e-10 4.222e-09 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="r_thigh___l" material="r_thigh___l_material"/>
+          <!-- Part m6_ss_hex_nut__configuration_m6_ss_hex_nut_2 -->
+          <geom type="mesh" class="visual" pos="-0.1 -0.173205 -0.05772" quat="0.202639 -0.202639 0.677449 -0.677449" mesh="m6_ss_hex_nut__configuration_m6_ss_hex_nut" material="m6_ss_hex_nut__configuration_m6_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.1 -0.173205 -0.05772" quat="0.202639 -0.202639 0.677449 -0.677449" mesh="m6_ss_hex_nut__configuration_m6_ss_hex_nut" material="m6_ss_hex_nut__configuration_m6_ss_hex_nut_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_14 -->
+          <geom type="mesh" class="visual" pos="-0.0933629 -0.0847093 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0933629 -0.0847093 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_16 -->
+          <geom type="mesh" class="visual" pos="-0.0697887 -0.107111 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0697887 -0.107111 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part knee_spacer_3 -->
+          <geom type="mesh" class="visual" pos="-0.2 -0.34641 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="knee_spacer" material="knee_spacer_material"/>
+          <geom type="mesh" class="collision" pos="-0.2 -0.34641 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="knee_spacer" material="knee_spacer_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_17 -->
+          <geom type="mesh" class="visual" pos="-0.0761736 -0.0549366 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0761736 -0.0549366 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part knee_spacer_4 -->
+          <geom type="mesh" class="visual" pos="-0.2 -0.34641 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+          <geom type="mesh" class="collision" pos="-0.2 -0.34641 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="knee_spacer__2" material="knee_spacer__2_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_15 -->
+          <geom type="mesh" class="visual" pos="-0.026636 -0.0538812 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.026636 -0.0538812 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_23 -->
+          <geom type="mesh" class="visual" pos="0.00759 0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.00759 0.0131463 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_14 -->
+          <geom type="mesh" class="visual" pos="0.0434635 -0.0226257 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0434635 -0.0226257 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_15 -->
+          <geom type="mesh" class="visual" pos="0.0226257 0.0434635 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0226257 0.0434635 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3x8_ss_shcs__configuration_m3x8_ss_shcs_16 -->
+          <geom type="mesh" class="visual" pos="-0.0498375 -0.0760772 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.0498375 -0.0760772 -0.0395" quat="0.866025 0 -0 0.5" mesh="m3x8_ss_shcs__configuration_m3x8_ss_shcs" material="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material"/>
+          <!-- Part m4x8_ss_shcs__configuration_default_36 -->
+          <geom type="mesh" class="visual" pos="-0.0226257 -0.0434635 -0.0435" quat="0.866025 0 -0 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <geom type="mesh" class="collision" pos="-0.0226257 -0.0434635 -0.0435" quat="0.866025 0 -0 0.5" mesh="m4x8_ss_shcs__configuration_default" material="m4x8_ss_shcs__configuration_default_material"/>
+          <!-- Part r_thigh___r -->
+          <geom type="mesh" class="visual" pos="-4.84e-10 4.222e-09 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="r_thigh___r" material="r_thigh___r_material"/>
+          <geom type="mesh" class="collision" pos="-4.84e-10 4.222e-09 -0.0275" quat="0.612372 0.353553 -0.612372 0.353553" mesh="r_thigh___r" material="r_thigh___r_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_18 -->
+          <geom type="mesh" class="visual" pos="-0.112104 -0.117169 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.112104 -0.117169 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_19 -->
+          <geom type="mesh" class="visual" pos="-0.058678 -0.0246333 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.058678 -0.0246333 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m4x16_ss_shcs__configuration_m4x16_ss_shcs_16 -->
+          <geom type="mesh" class="visual" pos="0.0147346 -0.0467321 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="0.0147346 -0.0467321 -0.0365" quat="0.866025 0 -0 0.5" mesh="m4x16_ss_shcs__configuration_m4x16_ss_shcs" material="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material"/>
+          <!-- Part m3_ss_hex_nut__configuration_m3_ss_hex_nut_20 -->
+          <geom type="mesh" class="visual" pos="-0.0933629 -0.0847093 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <geom type="mesh" class="collision" pos="-0.0933629 -0.0847093 -0.04738" quat="0.5 -0.5 0.5 -0.5" mesh="m3_ss_hex_nut__configuration_m3_ss_hex_nut" material="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material"/>
+          <!-- Part m4x12_ss_shcs__configuration_m4x12_ss_shcs_24 -->
+          <geom type="mesh" class="visual" pos="-0.01518 4.222e-09 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <geom type="mesh" class="collision" pos="-0.01518 4.222e-09 -0.0065" quat="0 0.5 -0.866025 0" mesh="m4x12_ss_shcs__configuration_m4x12_ss_shcs" material="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material"/>
+          <!-- Link r_calf_assy -->
+          <body name="r_calf_assy" pos="-0.1 -0.173205 -0.0415" quat="0 -0.258819 -0.965926 -0">
+            <!-- Joint from r_thigh_assy to r_calf_assy -->
+            <joint axis="0 0 1" name="right_calf" type="hinge" range="-1.308996938995747 0.2617993877991496"/>
+            <inertial pos="-0.0837134 -0.0461135 -0.0140134" mass="0.15874" fullinertia="0.000316147 0.000955524 0.00124351 -0.000516347 2.07085e-07 1.15044e-07"/>
+            <!-- Part m4x20_ss_shcs__configuration_m4x20_ss_shcs_2 -->
+            <geom type="mesh" class="visual" pos="0.0259808 0.015 -0.006" quat="0.965926 -0 0 0.258819" mesh="m4x20_ss_shcs__configuration_m4x20_ss_shcs" material="m4x20_ss_shcs__configuration_m4x20_ss_shcs_material"/>
+            <geom type="mesh" class="collision" pos="0.0259808 0.015 -0.006" quat="0.965926 -0 0 0.258819" mesh="m4x20_ss_shcs__configuration_m4x20_ss_shcs" material="m4x20_ss_shcs__configuration_m4x20_ss_shcs_material"/>
+            <!-- Part r_calf (the foot end that contacts the floor) -->
+            <geom type="mesh" class="visual" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="r_calf" material="r_calf_material"/>
+            <geom type="mesh" name="right_foot" class="foot" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="r_calf" material="r_calf_material"/>
+            <!-- Part 606_2rs_3 -->
+            <geom type="mesh" class="visual" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="606_2rs" material="606_2rs_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="606_2rs" material="606_2rs_material"/>
+            <!-- Part m4_ss_hex_nut__configuration_m4_ss_hex_nut_6 -->
+            <geom type="mesh" class="visual" pos="0.0259808 0.015 -0.0259" quat="0.707107 -0.707107 0 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+            <geom type="mesh" class="collision" pos="0.0259808 0.015 -0.0259" quat="0.707107 -0.707107 0 0" mesh="m4_ss_hex_nut__configuration_m4_ss_hex_nut" material="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material"/>
+            <!-- Part 606_2rs_4 -->
+            <geom type="mesh" class="visual" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="606_2rs__2" material="606_2rs__2_material"/>
+            <geom type="mesh" class="collision" pos="0 0 -0.014" quat="0.683013 0.183013 -0.683013 0.183013" mesh="606_2rs__2" material="606_2rs__2_material"/>
+            <!-- Frame right_foot -->
+            <site group="3" name="right_foot" pos="-0.216506 -0.125 -0.014" quat="0.683013 0.183013 -0.683013 0.183013"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <asset>
+    <mesh file="knee_spacer.stl"/>
+    <mesh file="pi_mount.stl"/>
+    <mesh file="m3x10_ss_shcs__configuration_m3x10_ss_shcs.stl"/>
+    <mesh file="m6_ss_hex_nut__configuration_m6_ss_hex_nut.stl"/>
+    <mesh file="bno085_chip.stl"/>
+    <mesh file="regulator_mount.stl"/>
+    <mesh file="l_hip.stl"/>
+    <mesh file="m4x16_ss_shcs__configuration_m4x16_ss_shcs.stl"/>
+    <mesh file="nf_a4x20.stl"/>
+    <mesh file="m2_ss_hex_nut__configuration_m2_ss_hex_nut.stl"/>
+    <mesh file="r_hip.stl"/>
+    <mesh file="pi_hat_spacer__2.stl"/>
+    <mesh file="regulator.stl"/>
+    <mesh file="r_calf.stl"/>
+    <mesh file="rs03.stl"/>
+    <mesh file="pi_hat_spacer.stl"/>
+    <mesh file="m4_ss_hex_nut__configuration_m4_ss_hex_nut.stl"/>
+    <mesh file="m6x55_ss_shcs__configuration_m6x55_ss_shcs.stl"/>
+    <mesh file="knee_spacer__2.stl"/>
+    <mesh file="m3_ss_hex_nut__configuration_m3_ss_hex_nut.stl"/>
+    <mesh file="battery__2.stl"/>
+    <mesh file="l_calf.stl"/>
+    <mesh file="m2_5_ss_hex_nut__configuration_default.stl"/>
+    <mesh file="l_thigh___r.stl"/>
+    <mesh file="battery.stl"/>
+    <mesh file="m4x20_ss_shcs__configuration_m4x20_ss_shcs.stl"/>
+    <mesh file="pi_5.stl"/>
+    <mesh file="pi_hat_spacer__4.stl"/>
+    <mesh file="m3x8_ss_shcs__configuration_m3x8_ss_shcs.stl"/>
+    <mesh file="l_thigh___l.stl"/>
+    <mesh file="m2_5x25_shcs__configuration_m2_5x25.stl"/>
+    <mesh file="606_2rs__2.stl"/>
+    <mesh file="r_thigh___l.stl"/>
+    <mesh file="606_2rs.stl"/>
+    <mesh file="m2_5x10_ss_shcs__configuration_m2_5x10.stl"/>
+    <mesh file="imu_mount.stl"/>
+    <mesh file="r_thigh___r.stl"/>
+    <mesh file="nf_a4x20_fan_screw.stl"/>
+    <mesh file="m2x12_ss_shcs__configuration_m2x12_ss_shcs.stl"/>
+    <mesh file="battery_mount.stl"/>
+    <mesh file="m4x8_ss_shcs__configuration_default.stl"/>
+    <mesh file="nf_a4x20__2.stl"/>
+    <mesh file="pi_hat_spacer__3.stl"/>
+    <mesh file="battery_mount__2.stl"/>
+    <mesh file="bno085_imu.stl"/>
+    <mesh file="body.stl"/>
+    <mesh file="m4x12_ss_shcs__configuration_m4x12_ss_shcs.stl"/>
+    <mesh file="pi_hat.stl"/>
+    <mesh file="face_plate.stl"/>
+    <material name="m4x8_ss_shcs__configuration_default_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m4_ss_hex_nut__configuration_m4_ss_hex_nut_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m3x10_ss_shcs__configuration_m3x10_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m2_5_ss_hex_nut__configuration_default_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m4x16_ss_shcs__configuration_m4x16_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m2x12_ss_shcs__configuration_m2x12_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="nf_a4x20_fan_screw_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m2_ss_hex_nut__configuration_m2_ss_hex_nut_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m2_5x10_ss_shcs__configuration_m2_5x10_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m3_ss_hex_nut__configuration_m3_ss_hex_nut_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m2_5x25_shcs__configuration_m2_5x25_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="rs03_material" rgba="0.498039 0.498039 0.498039 1"/>
+    <material name="face_plate_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="nf_a4x20_material" rgba="0.921569 0.8 0.654902 1"/>
+    <material name="pi_hat_spacer_material" rgba="0.768627 0.886275 0.952941 1"/>
+    <material name="body_material" rgba="0.262745 0.282353 0.301961 1"/>
+    <material name="regulator_mount_material" rgba="0.768627 0.886275 0.952941 1"/>
+    <material name="pi_hat_spacer__2_material" rgba="0.498039 0.498039 0.498039 1"/>
+    <material name="bno085_imu_material" rgba="0.498039 0.498039 0.498039 1"/>
+    <material name="regulator_material" rgba="0.980392 0.713725 0.00392157 1"/>
+    <material name="battery_mount_material" rgba="0.980392 0.713725 0.00392157 1"/>
+    <material name="pi_hat_material" rgba="0.917647 0.917647 0.917647 1"/>
+    <material name="pi_5_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="pi_mount_material" rgba="0.231373 0.380392 0.705882 1"/>
+    <material name="battery_material" rgba="0.458824 0.105882 0 1"/>
+    <material name="battery__2_material" rgba="0.458824 0.105882 0 1"/>
+    <material name="pi_hat_spacer__3_material" rgba="0.917647 0.917647 0.917647 1"/>
+    <material name="battery_mount__2_material" rgba="0.980392 0.713725 0.00392157 1"/>
+    <material name="nf_a4x20__2_material" rgba="0.921569 0.8 0.654902 1"/>
+    <material name="pi_hat_spacer__4_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="bno085_chip_material" rgba="0.980392 0.713725 0.00392157 1"/>
+    <material name="imu_mount_material" rgba="0.980392 0.713725 0.00392157 1"/>
+    <material name="m4x12_ss_shcs__configuration_m4x12_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="l_hip_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="m3x8_ss_shcs__configuration_m3x8_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="m6_ss_hex_nut__configuration_m6_ss_hex_nut_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="l_thigh___l_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="knee_spacer_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="l_thigh___r_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="m6x55_ss_shcs__configuration_m6x55_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="knee_spacer__2_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="606_2rs_material" rgba="0.713725 0.760784 0.8 1"/>
+    <material name="m4x20_ss_shcs__configuration_m4x20_ss_shcs_material" rgba="0.615686 0.811765 0.929412 1"/>
+    <material name="606_2rs__2_material" rgba="0.713725 0.760784 0.8 1"/>
+    <material name="l_calf_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="r_hip_material" rgba="0.972549 0.529412 0.00392157 1"/>
+    <material name="r_thigh___l_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="r_thigh___r_material" rgba="0.301961 0.301961 0.301961 1"/>
+    <material name="r_calf_material" rgba="0.972549 0.529412 0.00392157 1"/>
+  </asset>
+  <actuator>
+    <position class="harold_biped" name="left_hip" joint="left_hip" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="harold_biped" name="left_thigh" joint="left_thigh" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="harold_biped" name="left_calf" joint="left_calf" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="harold_biped" name="right_hip" joint="right_hip" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="harold_biped" name="right_thigh" joint="right_thigh" kp="60.0" kv="4.0" inheritrange="1"/>
+    <position class="harold_biped" name="right_calf" joint="right_calf" kp="60.0" kv="4.0" inheritrange="1"/>
+  </actuator>
+  <equality/>
+</mujoco>
