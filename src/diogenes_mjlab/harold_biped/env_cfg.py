@@ -27,7 +27,7 @@ from mjlab.sim.sim import MujocoCfg
 from mjlab.terrains.terrain_entity import TerrainEntityCfg
 from mjlab.utils.noise import UniformNoiseCfg
 
-from ..config.domain_rand import DEFAULT_DR_RANGES, DomainRandRanges, _scale_range
+from ..config.domain_rand import DomainRandRanges, _scale_range
 from ..constants import (
   JOINT_LIMIT_MARGIN,
   OBS_DELAY_MAX_LAG,
@@ -48,6 +48,19 @@ from .harold_biped_constants import (
 
 #: Critic-only (privileged) observation terms.
 PRIVILEGED_OBS_TERMS = ("feet_pos", "feet_ref_pos")
+
+#: DR ranges for the biped. The leg's baseline (``DEFAULT_DR_RANGES``) is left
+#: untouched -- it was validated against the real hop stand and the snapshot
+#: test pins it. Two deviations, both aimed at the first biped transfer:
+#:
+#:   * PD gains +-30% instead of +-11%. The real controller's kp/kv are a free
+#:     choice here, so the policy should tolerate a wide band rather than one
+#:     narrow guess, and the width tells us how much gain mismatch it survives.
+#:   * Effort limit 0.7-1.0 of the model's +-60 N.m RS03 forcerange.
+HAROLD_DR_RANGES = DomainRandRanges(
+  pd_gains_kp=(0.7, 1.3),
+  pd_gains_kd=(0.7, 1.3),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +110,10 @@ class SuspendedRewardWeights:
   feet_velocity: float = 2.0
   electrical_power: float = -0.0005
   torque: float = -0.002
+  # -1.0 beat -4.0 on every axis in a controlled A/B (reward 128 vs 6, episode
+  # length 567 vs 58, foot error 6 mm vs 36 mm): the stronger penalty suppressed
+  # motion before the policy learned the gait. A policy that tracks a smooth
+  # reference has a low action rate for free.
   action_rate: float = -1.0
   joint_limits: float = -1.0
   termination_penalty: float = -100.0
@@ -222,8 +239,9 @@ def _critic_terms() -> dict[str, ObservationTermCfg]:
 def _domain_randomization_events(
   dr_scale: float,
   reset_joint_pose: bool,
-  ranges: DomainRandRanges = DEFAULT_DR_RANGES,
+  ranges: DomainRandRanges = HAROLD_DR_RANGES,
   inertial_body_names: tuple[str, ...] = LEG_LINK_NAMES,
+  mode: str = "reset",
 ) -> dict[str, EventTermCfg]:
   """Leg-validated DR terms that apply to the biped.
 
@@ -233,12 +251,16 @@ def _domain_randomization_events(
   Args:
     inertial_body_names: bodies whose mass/inertia and COM are randomized. The
       suspended task excludes the welded torso; walking includes it.
+    mode: when the physical parameters are resampled. ``"reset"`` draws a fresh
+      robot every episode; ``"startup"`` draws once, which pins each env to one
+      fixed robot for the whole run and lets a policy with observation history
+      identify its env and specialise to it.
   """
   s = dr_scale
   events = {
     "pd_gains": EventTermCfg(
       func=dr.pd_gains,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": actuators_cfg(),
         "kp_range": _scale_range(*ranges.pd_gains_kp, s),
@@ -249,7 +271,7 @@ def _domain_randomization_events(
     ),
     "link_inertial": EventTermCfg(
       func=dr.pseudo_inertia,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": SceneEntityCfg("robot", body_names=inertial_body_names),
         "alpha_range": _scale_range(*ranges.inertia_alpha, s),
@@ -258,7 +280,7 @@ def _domain_randomization_events(
     ),
     "com_offset": EventTermCfg(
       func=dr.body_com_offset,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": SceneEntityCfg("robot", body_names=inertial_body_names),
         "ranges": {
@@ -272,7 +294,7 @@ def _domain_randomization_events(
     ),
     "joint_armature": EventTermCfg(
       func=dr.joint_armature,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": joints_cfg(),
         "ranges": _scale_range(*ranges.joint_armature, s),
@@ -282,7 +304,7 @@ def _domain_randomization_events(
     ),
     "joint_friction": EventTermCfg(
       func=dr.joint_friction,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": joints_cfg(),
         "ranges": _scale_range(*ranges.joint_friction, s),
@@ -292,19 +314,37 @@ def _domain_randomization_events(
     ),
     "encoder_bias": EventTermCfg(
       func=dr.encoder_bias,
-      mode="startup",
+      mode=mode,
       params={
         "asset_cfg": joints_cfg(),
         "bias_range": _scale_range(*ranges.encoder_bias, s),
       },
     ),
+    # Scales the model's +-60 N.m RS03 forcerange. Without a forcerange in the
+    # XML the position law is torque-unbounded and a policy will happily learn
+    # a transient the real actuator cannot deliver.
+    "effort_limit": EventTermCfg(
+      func=dr.effort_limits,
+      mode=mode,
+      params={
+        "asset_cfg": actuators_cfg(),
+        "effort_limit_range": _scale_range(*ranges.effort_limit, s),
+        "operation": "scale",
+        "distribution": "uniform",
+      },
+    ),
   }
   if reset_joint_pose:
     events["reset_joint_pose"] = EventTermCfg(
-      func=diogenes_mdp.reset_joints_uniform_legal,
+      func=diogenes_mdp.reset_joints_near_default,
       mode="reset",
       params={
         "asset_cfg": joints_cfg(),
+        "noise_range": ranges.reset_joint_noise,
+        # The gait's home pose, not the all-zero default (see gait.py).
+        "nominal_pos": tuple(
+          gait.nominal_joint_pos()[j] for j in HAROLD_JOINT_NAMES
+        ),
         "margin": JOINT_LIMIT_MARGIN,  # lockstep with joint_at_limit
         "safety_eps": 1e-3,
         "velocity_range": ranges.reset_velocity,

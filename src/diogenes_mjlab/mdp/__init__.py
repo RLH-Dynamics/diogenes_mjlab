@@ -90,5 +90,6 @@ from .terminations import (  # noqa: F401, E402
 # Events.
 # ---------------------------------------------------------------------------
 from .events import (  # noqa: F401, E402
+  reset_joints_near_default,
   reset_joints_uniform_legal,
 )

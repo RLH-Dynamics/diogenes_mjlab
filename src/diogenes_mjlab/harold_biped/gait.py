@@ -179,3 +179,22 @@ def foot_reference(
   pos = anchors + _rotate(pos - anchors, axis, angles)
   vel = _rotate(vel, axis, angles)
   return pos, vel
+
+
+def nominal_joint_pos() -> dict[str, float]:
+  """Joint angles holding each leg at the centre of its reference loop.
+
+  The hips sit at their abduction angle (the loop is a rotation about the hip
+  axis, so the hip holds still at +-HIP_ABDUCTION while the thigh and calf trace
+  it); the thigh and calf sit at zero, where the foot hangs at FOOT_CENTER_XY.
+
+  This -- not the all-zero pose -- is the gait's home configuration, and it is
+  what a reset should start near: the all-zero pose leaves the hips only 5 deg
+  off their hard limits, inside which a 2% termination band leaves almost no
+  room to perturb.
+  """
+  pose = {f"{side}_{link}": 0.0 for side in ("left", "right")
+          for link in ("hip", "thigh", "calf")}
+  for site, sign in HIP_OUTWARD_SIGN.items():
+    pose[f"{site.split('_')[0]}_hip"] = sign * HIP_ABDUCTION
+  return pose

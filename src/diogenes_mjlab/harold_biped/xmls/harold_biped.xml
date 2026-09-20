@@ -10,7 +10,12 @@
            joint_armature 0.016-0.024 kg·m², joint_friction 0.15-1.60 N·m), so runs
            with DR disabled (e.g. play) sit at the centre of what training saw. -->
       <joint frictionloss="0.9" armature="0.02"/>
-      <position kp="50" dampratio="1"/>
+      <!-- Robstride RS03 peak torque, +-60 N.m. Without a forcerange MuJoCo
+           applies whatever torque the PD law asks for, so a policy can learn a
+           reset/recovery transient the real actuator cannot deliver (measured:
+           an 84 N.m spike out of a random start pose, vs ~0.5 N.m in-gait).
+           dr.effort_limits scales this per env; see config DR ranges. -->
+      <position kp="50" dampratio="1" forcerange="-60 60"/>
       <default class="visual">
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
       </default>

@@ -53,8 +53,17 @@ class DomainRandRanges:
   # Joint encoder bias (rad).
   encoder_bias: Tuple[float, float] = (-0.015, 0.015)
 
+  # Actuator effort-limit multiplicative scale on the model's forcerange.
+  # Capped at 1.0: an actuator never exceeds its rated peak, but thermal
+  # derating and low bus voltage routinely cost you the top of the range.
+  effort_limit: Tuple[float, float] = (0.7, 1.0)
+
   # Reset start-pose: joint velocity range (m/s or rad/s).
   reset_velocity: Tuple[float, float] = (0.0, 0.0)
+
+  # Reset start-pose: uniform joint offset (rad) about the default pose, used
+  # by reset_joints_near_default (not by reset_joints_uniform_legal).
+  reset_joint_noise: Tuple[float, float] = (-0.15, 0.15)
 
 
 # Default ranges instance used by _domain_randomization_events when no
