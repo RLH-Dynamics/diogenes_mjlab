@@ -30,7 +30,12 @@ monitoring/
   metrics.py          -- live Viser metric terms
   recorder.py         -- per-step CSV recorder terms
 
-tools/                -- offline utilities (check_masses, inspect_joints, export_onnx)
+tools/                -- offline utilities (check_masses, inspect_joints, export_onnx,
+                         live_joint_viewer: mirror the real robot's joints in Viser)
+
+harold_biped/joint_contract.py
+                      -- exports the joint contract the hardware stack checks its
+                         direction signs against (pinned by tests/test_joint_contract.py)
 ```
 
 ### Privileged actor-critic split
