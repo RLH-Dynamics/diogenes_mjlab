@@ -11,6 +11,11 @@ see. Move a joint by hand and the matching link here should move the same way.
     shows up as red as soon as the joint moves.
   * Untick "Live" to pose the model with sliders instead, e.g. to find what a
     given sim angle looks like before comparing it with the robot.
+  * With `stream_joints.py --imu`, the whole model tilts with the torso as the
+    BNO085 reports it (through config.IMU.mount_rotation), with pitch, roll,
+    gyro and accuracy in the IMU panel. The heading is zeroed at the first
+    packet ("Reset heading" to redo): the IMU's absolute yaw comes from an
+    uncalibrated magnetometer and means nothing here, but turns still show.
 
 Standalone: needs only mujoco, viser and numpy (no mjlab/torch), so run it by
 path rather than as a package module:
@@ -41,6 +46,10 @@ JOINT_NAMES = (
   "right_hip", "right_thigh", "right_calf",
 )
 DEFAULT_PORT = 9870
+
+# v_standard = STANDARD_FROM_EXPORTED @ v_exported (harold_biped_constants.py).
+# The IMU stream is in the standard base frame; this model is in the exported one.
+STANDARD_FROM_EXPORTED = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
 MOVING_VEL = 0.3  # rad/s above which a joint counts as "being moved"
 STALE_S = 0.5
@@ -136,6 +145,9 @@ def main() -> None:
   server.initial_camera.look_at = (0.0, 0.0, SUSPENDED_BASE_HEIGHT - 0.2)
   server.initial_camera.position = (-0.6, -1.1, SUSPENDED_BASE_HEIGHT + 0.1)
 
+  # Every link hangs off one frame at the torso, so the IMU can tilt the lot.
+  base_pos = np.array([0.0, 0.0, SUSPENDED_BASE_HEIGHT])
+  robot_frame = server.scene.add_frame("/robot", show_axes=False, position=base_pos)
   frames: dict[int, viser.FrameHandle] = {}
   meshes: dict[int, list[tuple[viser.MeshHandle, tuple]]] = {}
   for body, parts in body_meshes(model).items():
@@ -145,7 +157,7 @@ def main() -> None:
       for i, (c, v, f) in enumerate(parts)
     ]
   labels = {
-    n: server.scene.add_label(f"/labels/{n}", n, font_screen_scale=0.8)
+    n: server.scene.add_label(f"/robot/labels/{n}", n, font_screen_scale=0.8)
     for n in JOINT_NAMES
   }
 
@@ -167,6 +179,16 @@ def main() -> None:
   def _(_):
     for s in sliders.values():
       s.value = 0.0
+
+  with server.gui.add_folder("IMU (base: +x fwd, +y left, +z up)"):
+    imu_md = server.gui.add_markdown("")
+    follow_imu = server.gui.add_checkbox("Tilt model with IMU", True)
+    reset_heading = server.gui.add_button("Reset heading")
+  heading = {"yaw0": None}
+
+  @reset_heading.on_click
+  def _(_):
+    heading["yaw0"] = None
 
   receiver = Receiver(args.port)
   receiver.start()
@@ -200,9 +222,22 @@ def main() -> None:
       elif live.value and n in joints and abs(joints[n]["vel"]) > MOVING_VEL:
         wanted[b] = wanted[b] or YELLOW
 
+    # Torso orientation from the IMU, heading zeroed, in the model's frame.
+    imu = packet.get("imu") if fresh else None
+    robot_wxyz = np.array([1.0, 0.0, 0.0, 0.0])
+    if imu is not None and follow_imu.value:
+      r_wb = np.array(imu["R_world_base"]).reshape(3, 3)
+      if heading["yaw0"] is None:
+        heading["yaw0"] = float(np.arctan2(r_wb[1, 0], r_wb[0, 0]))
+      c, s = np.cos(-heading["yaw0"]), np.sin(-heading["yaw0"])
+      r_wb = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]]) @ r_wb
+      r_view = STANDARD_FROM_EXPORTED.T @ r_wb @ STANDARD_FROM_EXPORTED
+      mujoco.mju_mat2Quat(robot_wxyz, r_view.ravel())
+
     with server.atomic():
+      robot_frame.wxyz = robot_wxyz
       for b, frame in frames.items():
-        frame.position = data.xpos[b]
+        frame.position = data.xpos[b] - base_pos
         frame.wxyz = data.xquat[b]
         if body_color.get(b, "unset") != wanted[b]:
           body_color[b] = wanted[b]
@@ -210,7 +245,7 @@ def main() -> None:
             handle.color = wanted[b] or cad
       for n, label in labels.items():
         label.visible = show_labels.value
-        label.position = data.xanchor[joint_ids[n]]
+        label.position = data.xanchor[joint_ids[n]] - base_pos
 
     # Status + table.
     if packet is None:
@@ -231,6 +266,22 @@ def main() -> None:
       rows.append(f"| {n} | {bus} | {hw} | {np.degrees(q[n]):+.1f}{flag} | "
                   f"{lo:+.0f} … {hi:+.0f} |")
     readout.content = "\n".join(rows)
+
+    if imu is None:
+      imu_md.content = ("No IMU in the stream (start `stream_joints.py --imu`)."
+                        if fresh else "")
+    else:
+      g, w = np.array(imu["gravity"]), np.array(imu["gyro"])
+      pitch = np.degrees(np.arcsin(np.clip(g[0], -1, 1)))
+      roll = np.degrees(np.arcsin(np.clip(g[1], -1, 1)))
+      imu_md.content = (
+        f"| | |\n|---|--:|\n"
+        f"| pitch (nose down +) | {pitch:+.1f}° |\n"
+        f"| roll (left down +) | {roll:+.1f}° |\n"
+        f"| tilt | {imu['tilt_deg']:.1f}° |\n"
+        f"| gravity | {g[0]:+.2f} {g[1]:+.2f} {g[2]:+.2f} |\n"
+        f"| gyro rad/s | {w[0]:+.2f} {w[1]:+.2f} {w[2]:+.2f} |\n"
+        f"| accuracy · age | {imu['status']}/3 · {imu['age_ms']:.0f} ms |")
 
     time.sleep(1 / 30)
 
