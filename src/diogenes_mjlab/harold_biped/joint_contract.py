@@ -1,10 +1,11 @@
 """The sim-side joint contract shared with the hardware stack (diogenes_control).
 
-For every actuated joint it records the MJCF range and, as plain signs, which way
-a POSITIVE joint angle moves that leg's foot. The hardware stack's per-joint
-`direction` signs were verified by hand against exactly these meanings, so the
-contract carries a `direction_signature` (a hash over the joint names and those
-signs). The control code refuses to apply gain when the signature it was
+For every actuated joint it records the MJCF range, the position actuator's
+control range (the sim clamps every commanded target to it, so the hardware
+stack must too) and, as plain signs, which way a POSITIVE joint angle moves
+that leg's foot. The hardware stack's per-joint `direction` signs were verified
+by hand against exactly these meanings, so the contract carries a
+`direction_signature` (a hash over the joint names and those signs). The control code refuses to apply gain when the signature it was
 verified against differs from the contract it is given.
 
 Only signs are hashed, not magnitudes, so a CAD tweak that moves a foot a few mm
@@ -92,8 +93,12 @@ def build_contract() -> dict:
   joints = {}
   for name, foot in JOINT_FOOT.items():
     lo, hi = model.jnt_range[model.joint(name).id]
+    act = model.actuator(name)
+    assert model.actuator_ctrllimited[act.id], f"actuator {name!r} has no ctrlrange"
+    c_lo, c_hi = model.actuator_ctrlrange[act.id]
     joints[name] = {
       "range": [round(float(lo), 6), round(float(hi), 6)],
+      "ctrl_range": [round(float(c_lo), 6), round(float(c_hi), 6)],
       "foot": foot,
       "positive_moves_foot": positive_motion(model, name, foot),
     }

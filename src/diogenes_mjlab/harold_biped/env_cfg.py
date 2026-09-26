@@ -365,6 +365,7 @@ def harold_suspended_env_cfg(
   dr_scale: float | None = None,
   reset_joints: bool | None = None,
   obs_history: int | None = None,
+  env_spacing: float | None = None,
 ) -> ManagerBasedRlEnvCfg:
   """Create the suspended-biped gait-tracking environment configuration.
 
@@ -382,6 +383,8 @@ def harold_suspended_env_cfg(
       not play).
     obs_history: past actor timesteps (``DIOGENES_OBS_HISTORY``; default
       OBS_HISTORY_LENGTH).
+    env_spacing: grid spacing between envs in m (``DIOGENES_ENV_SPACING``;
+      default 2.0). Visual only: the welded robots never interact.
   """
   if domain_rand is None:
     domain_rand = _env_bool("DIOGENES_DOMAIN_RAND")
@@ -403,6 +406,10 @@ def harold_suspended_env_cfg(
     obs_history = _env_int("DIOGENES_OBS_HISTORY")
   if obs_history is None:
     obs_history = OBS_HISTORY_LENGTH
+  if env_spacing is None:
+    env_spacing = _env_float("DIOGENES_ENV_SPACING")
+  if env_spacing is None:
+    env_spacing = 2.0
 
   # 2 ms physics step * decimation 10 -> 50 Hz control, as for the leg.
   sim_cfg = SimulationCfg(
@@ -415,7 +422,7 @@ def harold_suspended_env_cfg(
   # feet stay ~0.6 m above it, so it never generates contacts.
   scene_cfg = SceneCfg(
     num_envs=4096,
-    env_spacing=2.0,
+    env_spacing=env_spacing,
     terrain=TerrainEntityCfg(terrain_type="plane"),
     entities={"robot": get_harold_biped_cfg(fixed_base=True)},
   )
