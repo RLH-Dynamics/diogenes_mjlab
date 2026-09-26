@@ -3,24 +3,32 @@
 Registered as ``Diogenes-Biped-Walk``. A velocity-command task in the style of
 mjlab's ``tasks/velocity`` (as used for the Unitree G1), adapted to Harold:
 
-  * forward-only commands (no sideways or turning commands; yaw rate is
-    commanded to zero so heading drift is penalised),
+  * forward/backward and turning commands (no sideways stepping: the hips
+    swing only 5 deg inward), 10% of envs commanded to step in place, the
+    command ranges widened by a curriculum,
   * a crouched stance: the default pose bends the knees so the torso walks
     7.5 cm lower than standing straight-legged, with a torso-height reward,
   * a fixed step frequency per training run: a gait clock observation and a
     contact-schedule reward make each foot lift off and touch down once per
     1 / STEP_FREQUENCY_HZ seconds, the right foot half a cycle behind the left,
   * flat ground, no height scan,
-  * the leg-validated actuator settings: 2 ms timestep x 10 decimation (50 Hz),
-    observation noise/delay and the DR ranges from the hopping leg,
+  * the RS03 motors modelled as a PD with the robot's gains, a torque-speed
+    limit at the battery's voltage (drawn per episode) and targets clamped to
+    the joint range, as the control stack clamps them (``actuators.py``),
+  * 2 ms timestep x 10 decimation (50 Hz), the leg's observation noise/delay,
+    and DR ranges re-centred on the hanging-run logs (``HAROLD_WALK_DR_RANGES``),
   * a BNO085 IMU model: angular velocity and gravity read at the chip's site in
     the chip's own axes, with per-episode gyro bias and scale error, a
     randomized mount tilt and a steadier (held) IMU observation delay,
   * point feet: each foot collides through a sphere at the calf tip; a shank
     capsule touching the ground ends the episode (so the policy can't rest the
     calf flat as a stable support),
-  * episodes end when the torso tilts past 45 deg, drops below 0.25 m, a shank
-    touches the ground, or a joint reaches its limit.
+  * episodes end when the torso tilts past 45 deg, drops below 0.25 m or a
+    shank touches the ground; the outer 5% of each joint's range is penalised
+    rather than ending the episode,
+  * episodes start from the crouch with the joints jittered, the hips up to
+    10 deg splayed outward, so the policy learns to recover from it,
+  * left/right mirror symmetry is available to PPO (``symmetry.py``).
 
 The robot is built in the standard frame (+x forward, +y left, +z up; see
 ``harold_biped_constants._to_standard_frame``) so mjlab's velocity rewards and
@@ -30,11 +38,12 @@ command visualisation read correctly.
 import math
 from dataclasses import replace
 
-from mjlab.entity import EntityCfg
+from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs import mdp as envs_mdp
 from mjlab.envs.mdp import dr
 from mjlab.envs.mdp.actions import JointPositionActionCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
 from mjlab.managers.reward_manager import RewardTermCfg
@@ -57,9 +66,8 @@ from mjlab.tasks.velocity.mdp.velocity_command import UniformVelocityCommand
 from mjlab.terrains.terrain_entity import TerrainEntityCfg
 from mjlab.utils.noise import UniformNoiseCfg
 
-from ..config.domain_rand import DEFAULT_DR_RANGES, _scale_range
+from ..config.domain_rand import DEFAULT_DR_RANGES, DomainRandRanges, _scale_range
 from ..constants import (
-  JOINT_LIMIT_MARGIN,
   OBS_DELAY_MAX_LAG,
   OBS_DELAY_MIN_LAG,
   OBS_HISTORY_LENGTH,
@@ -69,21 +77,44 @@ from ..constants import (
 from ..flags import _env_bool, _env_float, _env_int
 from .. import mdp as diogenes_mdp
 from . import mdp as harold_mdp
+from .actuators import BATTERY_VOLTAGE_RANGE, Rs03ActuatorCfg, randomize_battery_voltage
 from .env_cfg import (
   LEG_LINK_NAMES,
   _domain_randomization_events,
   actuators_cfg,
   joints_cfg,
 )
-from .harold_biped_constants import IMU_SITE_NAME, ROOT_BODY_NAME, get_harold_biped_cfg
+from .harold_biped_constants import (
+  HAROLD_JOINT_NAMES,
+  IMU_SITE_NAME,
+  ROOT_BODY_NAME,
+  get_harold_biped_cfg,
+  get_spec,
+)
 
 # ---------------------------------------------------------------------------
 # Task constants.
 # ---------------------------------------------------------------------------
 
-#: Commanded forward speed range (m/s). 0 m/s asks for stepping in place (a
-#: point-foot biped cannot stand still).
-WALK_SPEED_RANGE: tuple[float, float] = (0.0, 0.3)
+#: Commanded forward speed (m/s) and yaw rate (rad/s, + = left) at the end of
+#: the curriculum. Zero asks for stepping in place (a point-foot biped cannot
+#: stand still).
+WALK_SPEED_RANGE: tuple[float, float] = (-0.1, 0.3)
+YAW_RATE_RANGE: tuple[float, float] = (-0.5, 0.5)
+
+#: Fraction of envs (per command resample) commanded to step in place.
+STEP_IN_PLACE_FRACTION: float = 0.1
+
+#: Command curriculum: from each PPO iteration on, (speed range, yaw-rate range).
+#: The last stage is the full range; play starts there.
+COMMAND_CURRICULUM: tuple[tuple[int, tuple[float, float], tuple[float, float]], ...] = (
+  (0, (-0.05, 0.15), (-0.2, 0.2)),
+  (400, (-0.1, 0.25), (-0.35, 0.35)),
+  (1000, WALK_SPEED_RANGE, YAW_RATE_RANGE),
+)
+
+#: Env steps per PPO iteration (rl_cfg num_steps_per_env), to place the stages.
+ENV_STEPS_PER_ITERATION: int = 24
 
 #: Default step frequency (Hz): each foot lifts off and touches down once per
 #: 1 / STEP_FREQUENCY_HZ seconds. Override per run with DIOGENES_STEP_FREQ.
@@ -145,8 +176,38 @@ SHANK_CONTACT_SENSOR = "shank_ground_contact"
 #: calf tip, so this lifts the tip ~40 mm, like the suspended gait.
 SWING_SITE_HEIGHT: float = 0.06
 
-#: Position-action scale (rad per unit action).
-ACTION_SCALE: float = 0.5
+#: Position-action scale (rad per unit action). The hips get half: they only
+#: need small sideways corrections, and their inward stop is 5 deg away.
+ACTION_SCALE: dict[str, float] = {r".*_hip": 0.25, r".*_thigh": 0.5, r".*_calf": 0.5}
+
+#: Joint-range fraction inside which no penalty applies: the outer 5% at each
+#: end is penalised (``dof_pos_limits``) instead of ending the episode.
+SOFT_JOINT_LIMIT_FACTOR: float = 0.9
+
+#: Reset offsets (rad) from the crouch, uniform per joint. With DR on, the hips
+#: start anywhere from 2 deg inward to 10 deg splayed outward (outward is +
+#: for the left hip, - for the right) so the policy learns to bring them back;
+#: without DR, a small jitter only.
+RESET_JOINT_OFFSETS_DR: dict[str, tuple[float, float]] = {
+  "left_hip": (-0.035, 0.175),
+  "right_hip": (-0.175, 0.035),
+  r".*_thigh": (-0.1, 0.1),
+  r".*_calf": (-0.1, 0.1),
+}
+RESET_JOINT_OFFSETS_PLAY: dict[str, tuple[float, float]] = {r".*": (-0.05, 0.05)}
+
+#: DR ranges for walking, re-centred on the hanging-run logs (2026-09-24/25,
+#: replayed in the fixed-base sim): static stiffness matched kp=60 within
+#: ~10%; friction fitted ~0.4 N.m (0.9 on the left calf) against the leg's
+#: 0.15-1.6; and the joints moved less damped than modelled, which the fit put
+#: down to 3-5x the armature -- more likely lag in the motors' own damping --
+#: so both the armature range and the low end of kd are widened.
+HAROLD_WALK_DR_RANGES = DomainRandRanges(
+  pd_gains_kp=(0.85, 1.15),
+  pd_gains_kd=(0.5, 1.3),
+  joint_armature=(0.015, 0.06),
+  joint_friction=(0.1, 1.2),
+)
 
 # ---------------------------------------------------------------------------
 # BNO085 IMU model.
@@ -252,9 +313,31 @@ def _imu_sensor_cfgs() -> tuple[BuiltinSensorCfg, BuiltinSensorCfg]:
   return gyro, up
 
 
+def _walk_spec():
+  """The standard-frame, point-foot model without the XML position actuators,
+  which the RS03 actuator model replaces."""
+  spec = get_spec(fixed_base=False, standard_frame=True, point_feet=True)
+  for actuator in list(spec.actuators):
+    spec.delete(actuator)
+  return spec
+
+
 def _robot_cfg() -> EntityCfg:
-  """Floating biped in the standard frame with point feet, starting crouched."""
+  """Floating biped in the standard frame with point feet and RS03 actuator
+  models, starting crouched."""
   cfg = get_harold_biped_cfg(fixed_base=False, standard_frame=True, point_feet=True)
+  cfg.spec_fn = _walk_spec
+  cfg.articulation = EntityArticulationInfoCfg(
+    actuators=(
+      Rs03ActuatorCfg(
+        target_names_expr=HAROLD_JOINT_NAMES,
+        # Nominal values for play; DR redraws both every episode.
+        armature=0.03,
+        frictionloss=0.5,
+      ),
+    ),
+    soft_joint_pos_limit_factor=SOFT_JOINT_LIMIT_FACTOR,
+  )
   cfg.init_state = EntityCfg.InitialStateCfg(
     pos=(0.0, 0.0, CROUCH_SPAWN_HEIGHT),
     joint_pos=dict(CROUCH_JOINT_POS),
@@ -277,16 +360,18 @@ def _build_rewards(step_frequency: float) -> dict[str, RewardTermCfg]:
   command_threshold = 0.05
 
   return {
+    # Weights and bands doubled/tightened after the first run of this config
+    # (2026-09-26) reached only ~70% of the commanded speed and turn rate with
+    # 2.0 / 0.15 m/s and 1.0 / 0.3 rad/s.
     "track_linear_velocity": RewardTermCfg(
       func=vel_mdp.track_linear_velocity,
-      weight=2.0,
-      # Commands top out at 0.3 m/s, so a tighter band than the G1's 0.5 m/s.
-      params={"command_name": "twist", "std": 0.15},
+      weight=4.0,
+      params={"command_name": "twist", "std": 0.1},
     ),
     "track_angular_velocity": RewardTermCfg(
       func=vel_mdp.track_angular_velocity,
-      weight=1.0,
-      params={"command_name": "twist", "std": 0.3},
+      weight=2.0,
+      params={"command_name": "twist", "std": 0.2},
     ),
     "upright": RewardTermCfg(
       func=vel_mdp.upright,
@@ -342,7 +427,10 @@ def _build_rewards(step_frequency: float) -> dict[str, RewardTermCfg]:
     ),
     "dof_pos_limits": RewardTermCfg(
       func=envs_mdp.joint_pos_limits,
-      weight=-1.0,
+      # rad past the soft limit (the outer 5% of the range): 2.5 deg into a
+      # hip's band costs ~1.3 per step. At -10, ~5% of robots still leaned a
+      # hip on its 5 deg inward stop.
+      weight=-30.0,
       params={"asset_cfg": joints_cfg()},
     ),
     "action_rate_l2": RewardTermCfg(func=envs_mdp.action_rate_l2, weight=-0.1),
@@ -502,8 +590,9 @@ def _critic_terms(step_frequency: float) -> dict[str, ObservationTermCfg]:
     "foot_contact": ObservationTermCfg(
       func=vel_mdp.foot_contact, params={"sensor_name": FEET_CONTACT_SENSOR}
     ),
+    # Heading frame, so the left/right mirror is a fixed map (symmetry.py).
     "foot_contact_forces": ObservationTermCfg(
-      func=vel_mdp.foot_contact_forces, params={"sensor_name": FEET_CONTACT_SENSOR}
+      func=harold_mdp.foot_contact_forces_heading, params={"sensor_name": FEET_CONTACT_SENSOR}
     ),
   }
 
@@ -616,13 +705,13 @@ def harold_walk_env_cfg(
     "twist": _ForwardVelocityCommandCfg(
       entity_name="robot",
       resampling_time_range=(4.0, 8.0),
-      rel_standing_envs=0.0,
+      rel_standing_envs=STEP_IN_PLACE_FRACTION,
       heading_command=False,
       debug_vis=True,
       ranges=UniformVelocityCommandCfg.Ranges(
         lin_vel_x=WALK_SPEED_RANGE,
         lin_vel_y=(0.0, 0.0),
-        ang_vel_z=(0.0, 0.0),
+        ang_vel_z=YAW_RATE_RANGE,
       ),
       viz=UniformVelocityCommandCfg.VizCfg(z_offset=0.5),
     )
@@ -655,8 +744,15 @@ def harold_walk_env_cfg(
       _domain_randomization_events(
         dr_scale,
         reset_joint_pose=False,
+        ranges=HAROLD_WALK_DR_RANGES,
         inertial_body_names=(ROOT_BODY_NAME, *LEG_LINK_NAMES),
       )
+    )
+    # Battery charge sets the RS03 no-load speed (see actuators.py).
+    events["battery_voltage"] = EventTermCfg(
+      func=randomize_battery_voltage,
+      mode="reset",
+      params={"voltage_range": BATTERY_VOLTAGE_RANGE, "asset_cfg": SceneEntityCfg("robot")},
     )
     events["foot_friction"] = EventTermCfg(
       func=dr.geom_friction,
@@ -695,11 +791,10 @@ def harold_walk_env_cfg(
     },
   )
   events["reset_robot_joints"] = EventTermCfg(
-    func=envs_mdp.reset_joints_by_offset,
+    func=harold_mdp.reset_joints_by_offset_per_joint,
     mode="reset",
     params={
-      "position_range": (-0.05, 0.05),  # around the crouched default pose
-      "velocity_range": (0.0, 0.0),
+      "offsets": RESET_JOINT_OFFSETS_DR if domain_rand else RESET_JOINT_OFFSETS_PLAY,
       "asset_cfg": joints_cfg(),
     },
   )
@@ -729,10 +824,6 @@ def harold_walk_env_cfg(
       func=envs_mdp.root_height_below_minimum,
       params={"minimum_height": FALL_MIN_HEIGHT},
     ),
-    "joint_at_limit": TerminationTermCfg(
-      func=diogenes_mdp.joint_at_limit,
-      params={"asset_cfg": joints_cfg(), "margin": JOINT_LIMIT_MARGIN},
-    ),
     "shank_contact": TerminationTermCfg(
       func=vel_mdp.illegal_contact,
       params={"sensor_name": SHANK_CONTACT_SENSOR},
@@ -757,6 +848,18 @@ def harold_walk_env_cfg(
     events=events,
     rewards=_build_rewards(step_frequency),
     terminations=terminations,
+    curriculum={} if play else {
+      "command_ranges": CurriculumTermCfg(
+        func=vel_mdp.commands_vel,
+        params={
+          "command_name": "twist",
+          "velocity_stages": [
+            {"step": it * ENV_STEPS_PER_ITERATION, "lin_vel_x": vx, "ang_vel_z": wz}
+            for it, vx, wz in COMMAND_CURRICULUM
+          ],
+        },
+      ),
+    },
   )
 
   cfg.viewer.origin_type = cfg.viewer.OriginType.ASSET_BODY

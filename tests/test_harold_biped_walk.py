@@ -305,19 +305,24 @@ def test_task_registered() -> None:
 @pytest.mark.parametrize("play", [False, True])
 def test_walk_cfg_builds(play: bool) -> None:
   from diogenes_mjlab.harold_biped.walk_env_cfg import (
+    COMMAND_CURRICULUM,
     PRIVILEGED_OBS_TERMS,
     STEP_FREQUENCY_HZ,
     WALK_SPEED_RANGE,
+    YAW_RATE_RANGE,
     harold_walk_env_cfg,
   )
 
   cfg = harold_walk_env_cfg(play=play)
   ranges = cfg.commands["twist"].ranges
-  assert ranges.lin_vel_x == WALK_SPEED_RANGE and ranges.lin_vel_x[0] >= 0.0
-  assert ranges.lin_vel_y == (0.0, 0.0) and ranges.ang_vel_z == (0.0, 0.0)
-  assert {"time_out", "fell_over", "base_too_low", "joint_at_limit", "shank_contact"} == set(
-    cfg.terminations
-  )
+  assert ranges.lin_vel_x == WALK_SPEED_RANGE and ranges.ang_vel_z == YAW_RATE_RANGE
+  assert ranges.lin_vel_y == (0.0, 0.0)
+  # The curriculum ends on the full ranges; play starts there.
+  assert COMMAND_CURRICULUM[-1][1:] == (WALK_SPEED_RANGE, YAW_RATE_RANGE)
+  assert ("command_ranges" in cfg.curriculum) is (not play)
+  # Joint limits are penalised, not terminal.
+  assert {"time_out", "fell_over", "base_too_low", "shank_contact"} == set(cfg.terminations)
+  assert cfg.rewards["dof_pos_limits"].weight < 0
   actor = cfg.observations["actor"].terms
   critic = cfg.observations["critic"].terms
   for name in PRIVILEGED_OBS_TERMS:
@@ -482,3 +487,198 @@ def test_imu_readings_match_bno085_hand_checks(walk_env) -> None:
     place((1.0, 0.0, 0.0, 0.0), world_rate)
     check(imu_angular_velocity(env, IMU_GYRO_SENSOR), chip_rate, what)
   env.reset()
+
+
+# ---------------------------------------------------------------------------
+# RS03 actuator model.
+# ---------------------------------------------------------------------------
+
+
+def test_rs03_torque_speed_limit_and_target_clamp(walk_env) -> None:
+  from diogenes_mjlab.harold_biped.actuators import (
+    RS03_PEAK_TORQUE,
+    RS03_SATURATION_TORQUE,
+    Rs03Actuator,
+  )
+  from mjlab.actuator.actuator import ActuatorCmd
+
+  env = walk_env
+  env.reset()
+  (act,) = env.scene["robot"].actuators
+  assert isinstance(act, Rs03Actuator)
+  n, j, dev = env.num_envs, 6, env.device
+  act.force_limit[:] = RS03_PEAK_TORQUE
+  act.set_no_load_speed(slice(None), torch.full((n,), 15.0, device=dev))
+
+  def limit(speed: float, push: float = 1e3) -> float:
+    zeros = torch.zeros(n, j, device=dev)
+    cmd = ActuatorCmd(
+      position_target=zeros, velocity_target=zeros, effort_target=torch.full_like(zeros, push),
+      pos=zeros, vel=torch.full_like(zeros, speed),
+    )
+    act.stiffness[:] = 0.0
+    act.damping[:] = 0.0
+    try:
+      return float(act.compute(cmd)[0, 0])
+    finally:
+      act.stiffness[:] = act.default_stiffness
+      act.damping[:] = act.default_damping
+
+  assert limit(0.0) == pytest.approx(RS03_PEAK_TORQUE)
+  assert limit(0.6 * 15.0) == pytest.approx(RS03_PEAK_TORQUE, rel=1e-4)  # full to 60% of w0
+  assert limit(12.0) == pytest.approx(RS03_SATURATION_TORQUE * (1 - 12.0 / 15.0), rel=1e-4)
+  assert limit(15.0) == pytest.approx(0.0, abs=1e-4)
+  assert limit(12.0, push=-1e3) == pytest.approx(-RS03_PEAK_TORQUE)  # braking keeps full torque
+
+  # Targets beyond a joint's range are clamped to it, as diogenes_control does.
+  robot = env.scene["robot"]
+  lo = robot.data.joint_pos_limits[:, act.target_ids, 0]
+  pos = lo + 0.1
+  cmd = ActuatorCmd(
+    position_target=lo - 1.0, velocity_target=torch.zeros_like(lo),
+    effort_target=torch.zeros_like(lo), pos=pos, vel=torch.zeros_like(lo),
+  )
+  torch.testing.assert_close(act.compute(cmd), act.stiffness * (lo - pos))
+
+
+def test_battery_voltage_sets_no_load_speed(walk_env) -> None:
+  from diogenes_mjlab.harold_biped.actuators import no_load_speed
+
+  env = walk_env
+  env.reset()
+  (act,) = env.scene["robot"].actuators
+  speed = act.velocity_limit_motor
+  assert (speed >= no_load_speed(32.0) - 1e-4).all() and (speed <= no_load_speed(40.0) + 1e-4).all()
+  assert (speed == speed[:, :1]).all()  # one battery per robot
+
+
+# ---------------------------------------------------------------------------
+# Mirror symmetry.
+# ---------------------------------------------------------------------------
+
+
+def test_joint_mirror_matches_kinematics() -> None:
+  """Swapping legs with the symmetry map's signs mirrors every foot in y."""
+  from diogenes_mjlab.harold_biped.harold_biped_constants import HAROLD_JOINT_NAMES, get_spec
+  from diogenes_mjlab.harold_biped.symmetry import ACTION_MIRROR
+
+  model = get_spec(fixed_base=False, standard_frame=True, point_feet=True).compile()
+  data = mujoco.MjData(model)
+  adr = [model.jnt_qposadr[model.joint(j).id] for j in HAROLD_JOINT_NAMES]
+  perm, signs = ACTION_MIRROR
+  rng = np.random.default_rng(0)
+
+  def feet(q):
+    data.qpos[:] = model.qpos0
+    data.qpos[adr] = q
+    mujoco.mj_kinematics(model, data)
+    return data.site("left_foot").xpos.copy(), data.site("right_foot").xpos.copy()
+
+  flip = np.array([1.0, -1.0, 1.0])
+  for _ in range(20):
+    q = np.array([rng.uniform(*model.jnt_range[model.joint(j).id]) for j in HAROLD_JOINT_NAMES])
+    left, right = feet(q)
+    m_left, m_right = feet(q[list(perm)] * np.array(signs))
+    np.testing.assert_allclose(m_left, right * flip, atol=1e-9)
+    np.testing.assert_allclose(m_right, left * flip, atol=1e-9)
+
+
+@pytest.fixture(scope="module")
+def clean_walk_env():
+  """No DR or noise (both break exact symmetry); 1.25 Hz so half a gait cycle
+  is a whole number of control steps (20)."""
+  from diogenes_mjlab.harold_biped.walk_env_cfg import harold_walk_env_cfg
+  from mjlab.envs import ManagerBasedRlEnv
+
+  cfg = harold_walk_env_cfg(
+    play=False, domain_rand=False, obs_noise=False, obs_history=3, step_frequency=1.25
+  )
+  cfg.scene.num_envs = 2
+  cfg.sim.device = "cpu"
+  cfg.events.pop("push_robot")
+  try:
+    env = ManagerBasedRlEnv(cfg=cfg, device="cpu")
+  except TypeError:
+    env = ManagerBasedRlEnv(cfg=cfg)
+  yield env
+  env.close()
+
+
+def test_observation_mirror_matches_mirrored_robot(clean_walk_env) -> None:
+  """Env 1 is placed as the mirror image of env 0 (joints, body pose and
+  velocity, command, last action, half a gait cycle on). The symmetry map
+  applied to env 0's observations must give env 1's, term by term."""
+  from diogenes_mjlab.harold_biped.symmetry import (
+    group_mirror,
+    mirror_actions,
+    mirror_obs_and_actions,
+  )
+  from tensordict import TensorDict
+
+  env = clean_walk_env
+  env.reset()
+  robot = env.scene["robot"]
+  dev = env.device
+  origins = env.scene.env_origins
+
+  def mirror_joints(x: torch.Tensor) -> torch.Tensor:
+    return mirror_actions(x.unsqueeze(0))[0]
+
+  # Airborne, tilted and turning, with bent legs.
+  q = robot.data.default_joint_pos[0] + torch.tensor([0.1, 0.2, -0.3, -0.05, 0.1, 0.2], device=dev)
+  qd = torch.tensor([0.5, -1.0, 2.0, 0.3, 1.5, -0.7], device=dev)
+  axis = torch.tensor([0.3, 0.5, 0.8], device=dev)
+  axis = axis / axis.norm()
+  half = 0.2
+  quat = torch.cat([torch.cos(torch.tensor([half], device=dev)), torch.sin(torch.tensor(half)) * axis])
+  lin, ang = torch.tensor([0.3, 0.2, -0.1], device=dev), torch.tensor([0.4, -0.6, 0.9], device=dev)
+  pos = torch.tensor([0.1, 0.2, 1.0], device=dev)
+
+  flip = torch.tensor([1.0, -1.0, 1.0], device=dev)
+  pose = torch.stack([
+    torch.cat([origins[0] + pos, quat]),
+    # Reflection in y: position and linear velocity flip y; the quaternion's x
+    # and z flip; angular velocity (a pseudovector) flips x and z.
+    torch.cat([origins[1] + pos * flip, quat * torch.tensor([1.0, -1.0, 1.0, -1.0], device=dev)]),
+  ])
+  vel = torch.stack([torch.cat([lin, ang]), torch.cat([lin * flip, -ang * flip])])
+  robot.write_root_link_pose_to_sim(pose)
+  robot.write_root_link_velocity_to_sim(vel)
+  robot.write_joint_state_to_sim(
+    torch.stack([q, mirror_joints(q - robot.data.default_joint_pos[0]) + robot.data.default_joint_pos[1]]),
+    torch.stack([qd, mirror_joints(qd)]),
+  )
+  env.sim.forward()
+
+  twist = env.command_manager.get_term("twist")
+  twist.is_standing_env[:] = False
+  twist.vel_command_b[:] = torch.tensor([[0.2, 0.0, 0.3], [0.2, 0.0, -0.3]], device=dev)
+  action = torch.tensor([0.3, -0.2, 0.5, 0.1, 0.4, -0.6], device=dev)
+  env.action_manager._action[:] = torch.stack([action, mirror_joints(action)])
+  env.episode_length_buf[:] = torch.tensor([7, 27], device=dev)
+
+  # Drop the reset poses from the history so every slot holds the placed state.
+  env.observation_manager.reset(torch.arange(2, device=dev))
+  obs = env.observation_manager.compute(update_history=True)
+  td = TensorDict({g: obs[g] for g in ("actor", "critic")}, batch_size=[2])
+  aug, _ = mirror_obs_and_actions(env, obs=td)
+  manager = env.observation_manager
+  for group in ("actor", "critic"):
+    predicted = aug[group][2]  # mirror of env 0
+    actual = obs[group][1]
+    offset = 0
+    for name, dims in zip(manager.active_terms[group], manager.group_obs_term_dim[group]):
+      width = int(np.prod(dims))
+      if name == "foot_height":
+        # Ray casts only refresh inside a physics step, so this still reads
+        # the reset pose; its mirror is a plain left/right swap.
+        offset += width
+        continue
+      torch.testing.assert_close(
+        predicted[offset:offset + width], actual[offset:offset + width],
+        atol=1e-4, rtol=1e-4, msg=f"{group}/{name}",
+      )
+      offset += width
+    index, sign = group_mirror(manager.active_terms[group], manager.group_obs_term_dim[group], dev)
+    # Mirroring twice is the identity.
+    torch.testing.assert_close(obs[group][:, index][:, index] * sign[index] * sign, obs[group])

@@ -11,7 +11,8 @@ from mjlab.entity import Entity
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.sensor import BuiltinSensor, ContactSensor
-from mjlab.utils.lab_api.math import quat_apply_inverse
+from mjlab.utils.lab_api.math import quat_apply_inverse, yaw_quat
+from mjlab.utils.lab_api.string import resolve_matching_names_values
 from mjlab.utils.noise.noise_cfg import NoiseModelCfg
 from mjlab.utils.noise.noise_model import NoiseModel
 
@@ -116,6 +117,24 @@ class GyroNoiseModelCfg(NoiseModelCfg, class_type=GyroNoiseModel):
 
   bias_range: tuple[float, float] = (0.0, 0.0)
   scale_range: tuple[float, float] = (0.0, 0.0)
+
+
+def foot_contact_forces_heading(
+  env: ManagerBasedRlEnv, sensor_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+  """Net foot contact forces in the robot's heading (yaw-only) frame, signed-log
+  scaled like mjlab's ``foot_contact_forces``. Shape (num_envs, 3 * num_feet).
+
+  The sensor reports world-frame forces, whose left/right mirror depends on the
+  robot's heading; in the heading frame it is a fixed map (see symmetry.py).
+  """
+  sensor: ContactSensor = env.scene[sensor_name]
+  force = sensor.data.force  # [B, F, 3], world frame (reduce="netforce")
+  assert force is not None, f"Sensor '{sensor_name}' must request the 'force' field."
+  asset: Entity = env.scene[asset_cfg.name]
+  heading = yaw_quat(asset.data.root_link_quat_w).unsqueeze(1).expand(-1, force.shape[1], -1)
+  flat = quat_apply_inverse(heading, force).flatten(1)
+  return torch.sign(flat) * torch.log1p(torch.abs(flat))
 
 
 def feet_pos_b(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
@@ -298,3 +317,41 @@ def off_schedule_contact_events(
   events = off_schedule_events(touchdown, liftoff, leg_phase, swing_fraction, event_margin)
   env.extras["log"]["Metrics/off_schedule_events_hz"] = events.sum(dim=-1).mean() / env.step_dt
   return events.sum(dim=-1)
+
+
+##
+# Events.
+##
+
+
+def reset_joints_by_offset_per_joint(
+  env: ManagerBasedRlEnv,
+  env_ids: torch.Tensor | None,
+  offsets: dict[str, tuple[float, float]],
+  asset_cfg: SceneEntityCfg,
+) -> None:
+  """Reset joints to the default pose plus a uniform offset drawn per joint.
+
+  ``offsets`` maps joint-name patterns to (low, high) in rad; every selected
+  joint must match one. Positions are clamped into the soft joint limits and
+  velocities zeroed.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  if env_ids is None:
+    env_ids = torch.arange(env.num_envs, device=env.device)
+  ids = asset_cfg.joint_ids
+  if isinstance(ids, slice):
+    ids = list(range(len(asset.joint_names)))[ids]
+  names = [asset.joint_names[i] for i in ids]
+  idx, _, ranges = resolve_matching_names_values(offsets, names, preserve_order=True)
+  assert sorted(idx) == list(range(len(names))), f"offsets {offsets} must cover {names}"
+  bounds = torch.zeros(len(names), 2, device=env.device)
+  bounds[idx] = torch.tensor(ranges, dtype=torch.float, device=env.device)
+
+  pos = asset.data.default_joint_pos[env_ids][:, ids].clone()
+  u = torch.rand_like(pos)
+  pos += bounds[:, 0] + (bounds[:, 1] - bounds[:, 0]) * u
+  limits = asset.data.soft_joint_pos_limits[env_ids][:, ids]
+  pos = pos.clamp(limits[..., 0], limits[..., 1])
+  joint_ids = torch.as_tensor(ids, device=env.device)
+  asset.write_joint_state_to_sim(pos, torch.zeros_like(pos), env_ids=env_ids, joint_ids=joint_ids)
